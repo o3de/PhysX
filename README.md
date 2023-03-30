@@ -32,6 +32,22 @@ Welcome to the NVIDIA PhysX source code repository.
 
 This repository contains source releases of the PhysX, Flow, and Blast SDKs used in NVIDIA Omniverse.
 
+## O3DE Fork
+
+This fork is mantained by the O3DE community and governed by the **Special Interest Group for Simulation** ([SIG Simulation]((https://github.com/o3de/sig-simulation))). You can ask any questions in the O3DE #sig-simulation [Discord Channel](https://discord.com/invite/o3de).
+
+The main purpose of this fork is the addition of the following platforms to NVIDIA PhysX:
+
+* [Mac](https://github.com/o3de/PhysX/pull/3) (Intel and ARM architectures)
+* [iOS](https://github.com/o3de/PhysX/pull/2)
+* [Android](https://github.com/o3de/PhysX/pull/1)
+
+Please see instructions specific to each of the platforms in the respective subfolder under [physx/documentation/platformreadme](physx/documentation/platformreadme).
+
+Only Pull Requests related to the new platforms will be taken, for any other contributions please submit them to [the NVIDA fork](https://github.com/NVIDIA-Omniverse/PhysX).
+
+More details about the creation of this fork can be found in [this discussion](https://github.com/NVIDIA-Omniverse/PhysX/discussions/58).
+
 ## Documentation
 
 The user guide and API documentation are available on [GitHub Pages](https://nvidia-omniverse.github.io/PhysX). Please create an [Issue](https://github.com/NVIDIA-Omniverse/PhysX/issues/) if you find a documentation issue.
@@ -45,4 +61,3 @@ Please see instructions specific to each of the libraries in the respective subf
 * Please use GitHub [Discussions](https://github.com/NVIDIA-Omniverse/PhysX/discussions/) for questions and comments.
 * GitHub [Issues](https://github.com/NVIDIA-Omniverse/PhysX/issues) should only be used for bug reports or documentation issues.
 * You can also ask questions in the NVIDIA Omniverse #physics [Discord Channel](https://discord.com/invite/XWQNJDNuaC).
-
