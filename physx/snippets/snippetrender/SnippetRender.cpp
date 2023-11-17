@@ -501,9 +501,10 @@ static void setupDefaultWindow(const char* name, RenderCallback rdcb)
 	char* argv[1] = { namestr };
 
 	glutInit(&argc, argv);
-	
-	gScreenWidth	= INITIAL_SCREEN_WIDTH;
+  	gScreenWidth	= INITIAL_SCREEN_WIDTH;
 	gScreenHeight	= INITIAL_SCREEN_HEIGHT;
+
+	int mainHandle = glutCreateWindow(name);
 
 	gTexter.init();
 	gTexter.setScreenResolution(gScreenWidth, gScreenHeight);
@@ -511,7 +512,6 @@ static void setupDefaultWindow(const char* name, RenderCallback rdcb)
 
 	glutInitWindowSize(gScreenWidth, gScreenHeight);
 	glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH);
-	int mainHandle = glutCreateWindow(name);
 	GLenum err = glewInit();
 	if (GLEW_OK != err)
 	{		
