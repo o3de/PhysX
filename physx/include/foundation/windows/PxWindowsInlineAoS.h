@@ -3079,6 +3079,7 @@ PX_FORCE_INLINE VecU16V V4U16LoadUnaligned(VecU16V* addr)
 	return *addr;
 }
 
+#ifndef __clang__
 // unsigned compares are not supported on x86
 PX_FORCE_INLINE VecU16V V4U16CompareGt(VecU16V a, VecU16V b)
 {
@@ -3095,6 +3096,7 @@ PX_FORCE_INLINE VecU16V V4U16CompareGt(VecU16V a, VecU16V b)
 	result.m128_u16[7] = PxU16((a).m128_u16[7] > (b).m128_u16[7]);
 	return result;
 }
+#endif // __clang__
 
 PX_FORCE_INLINE VecU16V V4I16CompareGt(VecU16V a, VecU16V b)
 {
@@ -3102,11 +3104,13 @@ PX_FORCE_INLINE VecU16V V4I16CompareGt(VecU16V a, VecU16V b)
 	    _mm_cmpgt_epi16(internalWindowsSimd::m128_F2I(a), internalWindowsSimd::m128_F2I(b)));
 }
 
+#ifndef __clang__
 PX_FORCE_INLINE Vec4V Vec4V_From_VecU32V(VecU32V a)
 {
 	Vec4V result = V4LoadXYZW(PxF32(a.m128_u32[0]), PxF32(a.m128_u32[1]), PxF32(a.m128_u32[2]), PxF32(a.m128_u32[3]));
 	return result;
 }
+#endif // __clang__
 
 PX_FORCE_INLINE Vec4V Vec4V_From_VecI32V(VecI32V a)
 {
@@ -3152,6 +3156,7 @@ PX_FORCE_INLINE Vec4V V4SplatElement(Vec4V a)
 	    _mm_shuffle_epi32(internalWindowsSimd::m128_F2I(a), _MM_SHUFFLE(index, index, index, index)));
 }
 
+#ifndef __clang__
 PX_FORCE_INLINE VecU32V U4LoadXYZW(PxU32 x, PxU32 y, PxU32 z, PxU32 w)
 {
 	VecU32V result;
@@ -3161,6 +3166,7 @@ PX_FORCE_INLINE VecU32V U4LoadXYZW(PxU32 x, PxU32 y, PxU32 z, PxU32 w)
 	result.m128_u32[3] = w;
 	return result;
 }
+#endif // __clang__
 
 PX_FORCE_INLINE Vec4V V4ConvertFromI32V(const VecI32V in)
 {
