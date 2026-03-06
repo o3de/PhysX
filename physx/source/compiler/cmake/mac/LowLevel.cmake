@@ -28,10 +28,6 @@
 # Build LowLevel
 #
 SET(LOWLEVEL_PLATFORM_INCLUDES
-	${PHYSX_SOURCE_DIR}/Common/src/mac
-	${PHYSX_SOURCE_DIR}/LowLevel/software/include/mac
-	${PHYSX_SOURCE_DIR}/LowLevelDynamics/include/mac
-	${PHYSX_SOURCE_DIR}/LowLevel/common/include/pipeline/mac
 )
 
 SET(LOWLEVEL_COMPILE_DEFS
@@ -47,4 +43,3 @@ SET(LOWLEVEL_COMPILE_DEFS
 SET(LOWLEVEL_PLATFORM_LINK_FLAGS " ")
 
 SET(LOWLEVEL_LIBTYPE OBJECT)
-

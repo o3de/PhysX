@@ -29,7 +29,6 @@
 #
 
 SET(SCENEQUERY_PLATFORM_INCLUDES
-	PRIVATE ${PHYSX_SOURCE_DIR}/Common/src/mac
 )
 
 # Use generator expressions to set config specific preprocessor definitions

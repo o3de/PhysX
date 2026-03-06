@@ -28,10 +28,6 @@
 # Build LowLevelDynamics
 #
 SET(LOWLEVELDYNAMICS_PLATFORM_INCLUDES
-	${PHYSX_SOURCE_DIR}/common/src/mac
-	${PHYSX_SOURCE_DIR}/lowlevel/software/include/mac
-	${PHYSX_SOURCE_DIR}/lowleveldynamics/include/mac
-	${PHYSX_SOURCE_DIR}/lowlevel/common/include/pipeline/mac
 )
 
 # Use generator expressions to set config specific preprocessor definitions

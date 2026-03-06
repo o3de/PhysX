@@ -4,6 +4,11 @@
   <CMakeSwitches>
     <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="True" comment="Generate static libraries" />
     <cmakeSwitch name="NV_FORCE_64BIT_SUFFIX" value="True" comment="Force a 64 bit suffix for platforms that don't register properly." />
+    <cmakeSwitch name="PX_BUILDSNIPPETS" value="False" comment="Disable snippets" />
+    <cmakeSwitch name="PX_BUILDPUBLICSAMPLES" value="False" comment="Disable samples" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="False" comment="Disable GPU projects" />
+    <cmakeSwitch name="PX_BUILD_VEHICLE" value="False" comment="Disable Vehicle SDK" />
+    <cmakeSwitch name="PX_BUILD_VEHICLE2" value="False" comment="Disable Vehicle 2 SDK" />
   </CMakeSwitches>
   <CMakeParams>
     <cmakeParam name="CMAKE_INSTALL_PREFIX" value="install/mac-arm64/PhysX" comment="Install path relative to PhysX SDK root" />

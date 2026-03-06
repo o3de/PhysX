@@ -29,8 +29,6 @@
 #
 
 SET(SIMULATIONCONTROLLER_PLATFORM_INCLUDES
-	${PHYSX_SOURCE_DIR}/Common/src/mac
-	${PHYSX_SOURCE_DIR}/LowLevel/mac/include
 )
 
 # Use generator expressions to set config specific preprocessor definitions

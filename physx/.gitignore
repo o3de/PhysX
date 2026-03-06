@@ -8,3 +8,4 @@ include/PxConfig.h
 install/
 bin/
 .DS_Store
+build_env

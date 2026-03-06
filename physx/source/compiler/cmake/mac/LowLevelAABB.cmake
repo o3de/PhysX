@@ -29,10 +29,6 @@
 #
 
 SET(LOWLEVELAABB_PLATFORM_INCLUDES
-	${PHYSX_SOURCE_DIR}/Common/src/mac
-	${PHYSX_SOURCE_DIR}/LowLevelAABB/mac/include
-	${PHYSX_SOURCE_DIR}/GpuBroadPhase/include
-	${PHYSX_SOURCE_DIR}/GpuBroadPhase/src
 )
 
 
