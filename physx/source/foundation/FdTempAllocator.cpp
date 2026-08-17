@@ -64,7 +64,8 @@ void* PxTempAllocator::allocate(size_t size, const char* filename, PxI32 line)
 	if(!size)
 		return 0;
 
-	PxU32 index = PxMax(PxHighestSetBit(PxU32(size) + sizeof(Chunk) - 1), sMinIndex);
+	PxU32 bitToCheck = PxU32(size) + PxU32(sizeof(Chunk)) - PxU32(1); // o3de - remove ambgiuity between size_t and PxU32
+	PxU32 index = PxMax(PxHighestSetBit(bitToCheck), sMinIndex);
 
 	Chunk* chunk = 0;
 	if(index < sMaxIndex)

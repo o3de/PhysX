@@ -34,7 +34,65 @@ ELSE()
     SET(ARCH_SIMD_FLAG "-msse2")
 ENDIF()
 
-SET(PHYSX_CXX_FLAGS "${OSX_BITNESS} ${ARCH_SIMD_FLAG} -std=c++11 -fno-rtti -fno-exceptions -ffunction-sections -fdata-sections -Werror -ferror-limit=0 -Wall -Wextra -fstrict-aliasing -Wstrict-aliasing=2 -Weverything -Wno-unknown-warning-option -Wno-documentation-deprecated-sync -Wno-documentation-unknown-command -Wno-float-equal -Wno-padded -Wno-weak-vtables -Wno-cast-align -Wno-conversion -Wno-missing-noreturn -Wno-missing-variable-declarations -Wno-shift-sign-overflow -Wno-covered-switch-default -Wno-exit-time-destructors -Wno-global-constructors -Wno-missing-prototypes -Wno-unreachable-code -Wno-unused-macros -Wno-unused-member-function -Wno-used-but-marked-unused -Wno-weak-template-vtables -Wno-deprecated -Wno-non-virtual-dtor -Wno-invalid-noreturn -Wno-return-type-c-linkage -Wno-reserved-id-macro -Wno-c++98-compat-pedantic -Wno-unused-local-typedef -Wno-old-style-cast -Wno-newline-eof -Wno-unused-private-field -Wno-undefined-reinterpret-cast -Wno-invalid-offsetof -Wno-zero-as-null-pointer-constant -Wno-atomic-implicit-seq-cst -Wno-suggest-destructor-override -Wno-suggest-override -Wno-alloca -Wno-switch-enum -Wno-unused-but-set-variable -Wno-shadow-field -gdwarf-2" CACHE INTERNAL "PhysX CXX")
+
+#TODO: Fix warnings
+SET(CLANG_WARNINGS "-ferror-limit=0 -Wall -Wextra -Werror -Weverything\
+	-Wno-unused-but-set-variable \
+	-Wno-switch-default \
+	-Wno-cast-qual \
+	-Wno-invalid-offsetof \
+	-Wno-unsafe-buffer-usage \
+	-Wno-alloca \
+	-Wno-atomic-implicit-seq-cst \
+	-Wno-c++98-compat-pedantic \
+	-Wno-c++98-compat \
+	-Wno-cast-align \
+	-Wno-conversion \
+	-Wno-covered-switch-default \
+	-Wno-deprecated \
+	-Wno-documentation-deprecated-sync \
+	-Wno-documentation-unknown-command \
+	-Wno-exit-time-destructors \
+	-Wno-extra-semi-stmt \
+	-Wno-float-equal \
+	-Wno-format-nonliteral \
+	-Wno-global-constructors \
+	-Wno-implicit-fallthrough \
+	-Wno-inconsistent-missing-destructor-override \
+	-Wno-inconsistent-missing-override \
+	-Wno-missing-noreturn \
+	-Wno-missing-prototypes \
+	-Wno-missing-variable-declarations \
+	-Wno-newline-eof \
+	-Wno-non-virtual-dtor \
+	-Wno-old-style-cast \
+	-Wno-padded \
+	-Wno-reserved-id-macro \
+	-Wno-suggest-destructor-override \
+	-Wno-suggest-override \
+	-Wno-switch-enum \
+	-Wno-undef \
+	-Wno-undefined-reinterpret-cast \
+	-Wno-unknown-warning-option \
+	-Wno-unreachable-code \
+	-Wno-unused-function \
+	-Wno-unused-macros \
+	-Wno-unused-member-function \
+	-Wno-unused-private-field \
+	-Wno-used-but-marked-unused \
+	-Wno-weak-template-vtables \
+	-Wno-weak-vtables \
+	-Wno-zero-as-null-pointer-constant \
+	-Wno-reserved-identifier \
+	-Wno-undefined-func-template \
+	-Wno-class-varargs \
+	-Wno-invalid-noreturn \
+	-Wno-missing-include-dirs \
+	-Wno-format \
+	-Wno-poison-system-directories \
+")
+
+SET(PHYSX_CXX_FLAGS "${OSX_BITNESS} ${ARCH_SIMD_FLAG} -std=c++11 -fno-rtti -fno-exceptions -ffunction-sections -fdata-sections -Werror ${CLANG_WARNINGS} -gdwarf-2" CACHE INTERNAL "PhysX CXX")
 
 SET(CMAKE_SHARED_LINKER_FLAGS_CHECKED "")
 SET(CMAKE_SHARED_LINKER_FLAGS_PROFILE "")
@@ -87,12 +145,10 @@ INCLUDE(PhysXCommon.cmake)
 INCLUDE(PhysXCooking.cmake)
 INCLUDE(PhysXExtensions.cmake)
 INCLUDE(PhysXVehicle.cmake)
-INCLUDE(PhysXVehicle2.cmake)
-INCLUDE(PhysXPvdSDK.cmake)
 INCLUDE(PhysXTask.cmake)
 INCLUDE(SceneQuery.cmake)
 INCLUDE(SimulationController.cmake)
-INCLUDE(FastXml.cmake)
+INCLUDE(PhysXPvdSDK.cmake)
 
 # Set folder PhysX SDK to all common SDK source projects
 SET_PROPERTY(TARGET PhysX PROPERTY FOLDER "PhysX SDK")
@@ -100,14 +156,12 @@ SET_PROPERTY(TARGET PhysXCharacterKinematic PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET PhysXCommon PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET PhysXCooking PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET PhysXExtensions PROPERTY FOLDER "PhysX SDK")
-SET_PROPERTY(TARGET PhysXVehicle PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET PhysXVehicle2 PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET LowLevel PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET LowLevelAABB PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET LowLevelDynamics PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET SceneQuery PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET SimulationController PROPERTY FOLDER "PhysX SDK")
-SET_PROPERTY(TARGET FastXml PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET PhysXPvdSDK PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET PhysXTask PROPERTY FOLDER "PhysX SDK")
 SET_PROPERTY(TARGET PhysXFoundation PROPERTY FOLDER "PhysX SDK")
