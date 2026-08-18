@@ -90,6 +90,7 @@ SET(CLANG_WARNINGS "-ferror-limit=0 -Wall -Wextra -Werror -Weverything\
 	-Wno-missing-include-dirs \
 	-Wno-format \
 	-Wno-poison-system-directories \
+	-Wno-nrvo \
 ")
 
 SET(PHYSX_CXX_FLAGS "${OSX_BITNESS} ${ARCH_SIMD_FLAG} -std=c++11 -fno-rtti -fno-exceptions -ffunction-sections -fdata-sections -Werror ${CLANG_WARNINGS} -gdwarf-2" CACHE INTERNAL "PhysX CXX")
