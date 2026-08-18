@@ -30,10 +30,10 @@
 
 
 SET(LOWLEVEL_PLATFORM_INCLUDES
-	${PHYSX_SOURCE_DIR}/Common/src/linux
-	${PHYSX_SOURCE_DIR}/LowLevel/software/include/linux
-	${PHYSX_SOURCE_DIR}/LowLevelDynamics/include/linux
-	${PHYSX_SOURCE_DIR}/LowLevel/common/include/pipeline/linux
+	${PHYSX_SOURCE_DIR}/common/src/linux
+	${PHYSX_SOURCE_DIR}/lowlevel/software/include/linux
+	${PHYSX_SOURCE_DIR}/lowleveldynamics/include/linux
+	${PHYSX_SOURCE_DIR}/lowlevel/common/include/pipeline/linux
 )
 
 SET(LOWLEVEL_COMPILE_DEFS
