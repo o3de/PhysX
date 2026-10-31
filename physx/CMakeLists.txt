@@ -57,6 +57,9 @@ set(_PX_VERSION "${_PX_VER_MAJOR}.${_PX_VER_MINOR}.${_PX_VER_BUGFIX}")
 message(STATUS "PhysX version: ${_PX_VERSION} (from PxPhysicsVersion.h)")
 
 if(PX_GENERATE_GPU_PROJECTS)
+  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES OFF CACHE STRING "CUDA architectures. OFF uses PhysX defaults")
+  endif()
   if(_PHYSX_IS_TOP_LEVEL_FOR_PROJECT)
     # Top-level: declare all languages in project() - this is the normal case
     project(PhysX VERSION ${_PX_VERSION} LANGUAGES C CXX CUDA)
@@ -280,34 +283,12 @@ if(DEFINED ENV{GENERATE_SOURCE_DISTRO} AND "$ENV{GENERATE_SOURCE_DISTRO}" STREQU
   set(PX_GENERATE_SOURCE_DISTRO 1)
 endif()
 
-# CUDA Integration (GPU enabled, not cross-compiling, Windows or Linux only)
-if(PX_GENERATE_GPU_PROJECTS AND NOT CMAKE_CROSSCOMPILING AND (TARGET_BUILD_PLATFORM STREQUAL "windows" OR TARGET_BUILD_PLATFORM STREQUAL "linux"))
-  # Set CUDA Toolkit root before searching (if provided via environment)
+# GPU dependencies are build-time requirements. Shared GPU libraries load on demand.
+if(PX_GENERATE_GPU_PROJECTS)
   if(DEFINED ENV{PM_CUDA_PATH})
     set(CUDAToolkit_ROOT "$ENV{PM_CUDA_PATH}" CACHE PATH "CUDA Toolkit root directory")
-    message(STATUS "Using CUDA Toolkit at: $ENV{PM_CUDA_PATH}")
   endif()
-  
-  find_package(CUDAToolkit QUIET)
-  if(CUDAToolkit_FOUND)
-    message(STATUS "Found CUDAToolkit: ${CUDAToolkit_VERSION}")
-    message(STATUS "CUDAToolkit_LIBRARY_DIR: ${CUDAToolkit_LIBRARY_DIR}")
-  else()
-    message(WARNING "CUDAToolkit not found - GPU builds may have linking issues. Ensure CUDA is installed.")
-  endif()
-  
-  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 75 CACHE STRING "CUDA architectures")
-  endif()
-  message(STATUS "CUDA enabled with architecture ${CMAKE_CUDA_ARCHITECTURES}")
-  
-  if(DEFINED ENV{PM_CUDA_PATH})
-    if((COMPILER STREQUAL "vc15" OR COMPILER STREQUAL "vc16" OR COMPILER STREQUAL "vc17") AND NOT GENERATOR STREQUAL "ninja")
-      # Additional CUDA flags could be passed here if required.
-    elseif(COMPILER STREQUAL "clang" AND DEFINED ENV{PM_clang_PATH})
-      set(CMAKE_CUDA_HOST_COMPILER "$ENV{PM_clang_PATH}/bin/clang++")
-    endif()
-  endif()
+  find_package(CUDAToolkit REQUIRED)
 endif()
 
 # Platform/arch already set earlier via if(NOT DEFINED ...) guards
@@ -352,80 +333,6 @@ if(PX_GENERATE_GPU_PROJECTS)
     add_subdirectory(${PHYSX_ROOT_DIR}/source/compiler/cmakegpu ${CMAKE_CURRENT_BINARY_DIR}/sdk_gpu_source_bin)
   else()
     add_subdirectory(${PHYSX_ROOT_DIR}/source/compiler/cmakegpu ${CMAKE_CURRENT_BINARY_DIR}/sdk_gpu_source_bin EXCLUDE_FROM_ALL)
-  endif()
-
-  # Link PhysXGpu against CUDA driver library
-  if(TARGET PhysXGpu)
-    message(STATUS "=== Configuring PhysXGpu CUDA linking ===")
-    
-    # Use PUBLIC linkage for static libs (dependencies must propagate to consumers)
-    # Use PRIVATE linkage for shared libs (dependencies are internal)
-    if(PX_GENERATE_GPU_STATIC_LIBRARIES)
-      set(CUDA_LINK_SCOPE PUBLIC)
-      message(STATUS "PhysXGpu is STATIC - using PUBLIC linkage for CUDA libs")
-    else()
-      set(CUDA_LINK_SCOPE PRIVATE)
-      message(STATUS "PhysXGpu is SHARED - using PRIVATE linkage for CUDA libs")
-    endif()
-    
-    # Link against CUDA driver API (libcuda.so on Linux, cuda.lib on Windows)
-    # Background: libcuda.so.1 is part of the NVIDIA GPU driver, not the CUDA Toolkit.
-    # The CUDA Toolkit includes stub libraries specifically for building without GPU drivers.
-    # This is the standard approach for CI/CD environments and cross-compilation scenarios.
-    
-    # Strategy:
-    # 1. Try to find the real driver library first (dev machines with NVIDIA driver installed)
-    # 2. Fall back to stub library (CI/Docker without GPU driver, cross-compilation)
-    # 3. Error if neither is found
-    
-    # Try to find the real driver library first (requires NVIDIA driver to be installed)
-    find_library(CUDA_DRIVER_LIBRARY_REAL 
-      NAMES cuda 
-      PATHS /usr/lib /usr/lib64 /usr/local/cuda ${CUDAToolkit_LIBRARY_DIR}
-      PATH_SUFFIXES lib64 lib/x64 lib lib64/nvidia lib/nvidia nvidia-cuda-toolkit/lib64
-      NO_DEFAULT_PATH
-    )
-    
-    # Fallback to stub library (designed for linking without GPU driver present)
-    if(NOT CUDA_DRIVER_LIBRARY_REAL)
-      find_library(CUDA_DRIVER_LIBRARY_STUB
-        NAMES cuda
-        PATHS /usr/local/cuda ${CUDAToolkit_LIBRARY_DIR}
-        PATH_SUFFIXES lib64/stubs lib/stubs stubs lib/x64/stubs
-      )
-      if(CUDA_DRIVER_LIBRARY_STUB)
-        set(CUDA_DRIVER_LIBRARY ${CUDA_DRIVER_LIBRARY_STUB})
-        message(STATUS "[OK] Using CUDA driver stub library: ${CUDA_DRIVER_LIBRARY}")
-        message(STATUS "  (Stub libraries are for build-time linking; real driver needed at runtime)")
-      endif()
-    else()
-      set(CUDA_DRIVER_LIBRARY ${CUDA_DRIVER_LIBRARY_REAL})
-      message(STATUS "[OK] Found real CUDA driver library: ${CUDA_DRIVER_LIBRARY}")
-    endif()
-    
-    # Link the library we found
-    if(CUDA_DRIVER_LIBRARY)
-      target_link_libraries(PhysXGpu ${CUDA_LINK_SCOPE} ${CUDA_DRIVER_LIBRARY})
-    else()
-      message(FATAL_ERROR 
-        "[ERROR] CUDA driver library (libcuda) not found - required for GPU builds.\n"
-        "  Solutions:\n"
-        "  1. Install NVIDIA driver (provides libcuda.so.1)\n"
-        "  2. Install CUDA Toolkit (provides stub libraries in lib64/stubs/)\n"
-        "  3. Disable GPU projects: -DPX_GENERATE_GPU_PROJECTS=OFF\n"
-        "  Searched paths:\n"
-        "    - /usr/lib, /usr/lib64, /usr/local/cuda\n"
-        "    - ${CUDAToolkit_LIBRARY_DIR}")
-    endif()
-    
-    # Also link CUDA runtime if available
-    if(TARGET CUDA::cudart)
-      message(STATUS "[OK] Linking PhysXGpu with CUDA::cudart")
-      target_link_libraries(PhysXGpu ${CUDA_LINK_SCOPE} CUDA::cudart)
-    else()
-      message(STATUS "[WARN] CUDA::cudart target not available")
-    endif()
-    message(STATUS "=== PhysXGpu CUDA linking complete ===")
   endif()
 
   if(WIN32)
@@ -567,33 +474,14 @@ foreach(lib IN LISTS PHYSX_LIBS)
   # to avoid source directory path issues. We set our own include paths above.
 endforeach()
 
-# GPU and CUDA integration
-if(NOT CMAKE_CROSSCOMPILING AND (TARGET_BUILD_PLATFORM STREQUAL "windows" OR TARGET_BUILD_PLATFORM STREQUAL "linux"))
-  if(TARGET PhysXGpu)
-    message(STATUS "Linking physx_lib with PhysXGpu")
+# Keep the shared GPU plugin out of CPU consumers' link dependencies.
+set(PHYSX_INSTALL_LIBS ${PHYSX_LIBS})
+if(TARGET PhysXGpu)
+  list(APPEND PHYSX_INSTALL_LIBS PhysXGpu)
+  if(PX_GENERATE_GPU_STATIC_LIBRARIES)
     target_link_libraries(physx_lib INTERFACE PhysXGpu)
-    list(APPEND PHYSX_LIBS PhysXGpu)
-  endif()
-  
-  # Link CUDA libraries to physx_lib for consumers
-  # Note: PhysXGpu uses PRIVATE linkage for shared libs, so deps don't propagate
-  # Consumers need to link against CUDA libs directly when using shared PhysXGpu
-  if(PX_GENERATE_GPU_PROJECTS)
-    if(CUDAToolkit_FOUND)
-      message(STATUS "Linking physx_lib with CUDA::cudart")
-      target_link_libraries(physx_lib INTERFACE CUDA::cudart)
-    endif()
-    
-    if(CUDA_DRIVER_LIBRARY)
-      message(STATUS "Linking physx_lib with CUDA driver library: ${CUDA_DRIVER_LIBRARY}")
-      target_link_libraries(physx_lib INTERFACE ${CUDA_DRIVER_LIBRARY})
-    else()
-      message(WARNING "CUDA driver library not available for physx_lib consumers")
-    endif()
   endif()
 endif()
-
-set(PHYSX_INSTALL_LIBS ${PHYSX_LIBS})
 if(TARGET PVDRuntime)
   list(APPEND PHYSX_INSTALL_LIBS PVDRuntime)
 endif()
@@ -617,7 +505,7 @@ if(PX_ENABLE_INSTALL)
           FILES_MATCHING PATTERN "*.h*")
 
   # Set RPATH on shared libraries so they can find each other after installation
-  foreach(_lib IN LISTS PHYSX_LIBS)
+  foreach(_lib IN LISTS PHYSX_INSTALL_LIBS)
     if(TARGET ${_lib})
       get_target_property(_lib_type ${_lib} TYPE)
       if(_lib_type STREQUAL "SHARED_LIBRARY")

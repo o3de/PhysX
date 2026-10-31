@@ -35,6 +35,8 @@ IF(NOT EXISTS ${PHYSX_ROOT_DIR})
 ENDIF()
 
 INCLUDE(NvidiaBuildOptions)
+# PhysX supplies its own CUDA kernel registration and launch entry points.
+SET(CMAKE_CUDA_RUNTIME_LIBRARY None)
 INCLUDE(SetCudaArch)
 
 SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -67,14 +69,13 @@ SET(SOURCE_DISTRO_FILE_LIST "")
 # we need to compile ptx for the latest arch supported by the cuda toolkit.
 # This will allow the jit compiler in the driver to compile ptx to sass of the newer arch.
 
-# No need to set --generate-code=arch=compute_75,code=[compute_75,sm_75]
-# since that's the default set in: compiler\internal\CMakeLists.txt (using CMAKE_CUDA_ARCHITECTURES)
-# see policy CMP0104
-IF(PX_GENERATE_GPU_REDUCED_ARCHITECTURES)
-	GENERATE_ARCH_CODE_LIST(SASS "80,86,89,90,100,120" PTX "120")
+# Explicit CMake architectures override PhysX's multi-architecture defaults.
+IF(CMAKE_CUDA_ARCHITECTURES)
+	SET(ARCH_CODE_LIST "" CACHE INTERNAL "" FORCE)
+ELSEIF(PX_GENERATE_GPU_REDUCED_ARCHITECTURES)
+	GENERATE_ARCH_CODE_LIST(SASS "75,80,86,89,90,100,120" PTX "120")
 ELSE()
-	# Volta is the minimum compute arch required because NGC supports V100
-	GENERATE_ARCH_CODE_LIST(SASS "70,80,86,89,90,100,120" PTX "120")
+	GENERATE_ARCH_CODE_LIST(SASS "70,75,80,86,89,90,100,120" PTX "120")
 ENDIF()
 
 # Force response files off because clangd does not parse them
@@ -85,6 +86,7 @@ set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_OBJECTS 0)
 # Cuda setup that is the same for all platforms and sub-projects
 SET(PHYSX_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Werror=all-warnings -use_fast_math -ftz=true -prec-div=false -prec-sqrt=false -t0 -D_CONSOLE" CACHE INTERNAL "PhysX CUDA")
 # Include the platform specific CMakeLists (The other CUDA flags that are specific to each platform are defined there)
+INCLUDE_DIRECTORIES(SYSTEM ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 INCLUDE(${PHYSX_ROOT_DIR}/${PROJECT_CMAKE_FILES_DIR}/${TARGET_BUILD_PLATFORM}/CMakeLists.txt)
 
 IF(PX_GENERATE_SOURCE_DISTRO)
