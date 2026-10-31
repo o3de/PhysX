@@ -13,7 +13,11 @@
 #endif
 
 // only ARM NEON compatible platforms should reach this
+#if PX_VC && PX_A64
+#include <arm64_neon.h>
+#else
 #include <arm_neon.h>
+#endif
 
 namespace physx
 {

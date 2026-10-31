@@ -1,3 +1,9 @@
 compiler/linux-*
 compiler/vc*
+compiler/android*
+compiler/ios*
+compiler/mac*
 include/PxConfig.h
+install/
+bin/
+.DS_Store

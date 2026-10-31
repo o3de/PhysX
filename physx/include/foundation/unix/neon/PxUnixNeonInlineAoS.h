@@ -976,7 +976,8 @@ PX_FORCE_INLINE Vec3V V3Splat(const FloatV f)
 {
 	ASSERT_ISVALIDFLOATV(f);
 
-	const uint32x2_t mask = { 0xffffFFFF, 0x0 };
+	const uint32_t maskData[2] = { 0xffffFFFF, 0x0 };
+	const uint32x2_t mask = vld1_u32(maskData);
 	const uint32x2_t uHigh = vreinterpret_u32_f32(f);
 	const float32x2_t dHigh = vreinterpret_f32_u32(vand_u32(uHigh, mask));
 
@@ -989,7 +990,8 @@ PX_FORCE_INLINE Vec3V V3Merge(const FloatVArg x, const FloatVArg y, const FloatV
 	ASSERT_ISVALIDFLOATV(y);
 	ASSERT_ISVALIDFLOATV(z);
 
-	const uint32x2_t mask = { 0xffffFFFF, 0x0 };
+	const uint32_t maskData[2] = { 0xffffFFFF, 0x0 };
+	const uint32x2_t mask = vld1_u32(maskData);
 	const uint32x2_t dHigh = vand_u32(vreinterpret_u32_f32(z), mask);
 	const uint32x2_t dLow = vext_u32(vreinterpret_u32_f32(x), vreinterpret_u32_f32(y), 1);
 	return vreinterpretq_f32_u32(vcombine_u32(dLow, dHigh));
@@ -997,19 +999,22 @@ PX_FORCE_INLINE Vec3V V3Merge(const FloatVArg x, const FloatVArg y, const FloatV
 
 PX_FORCE_INLINE Vec3V V3UnitX()
 {
-	const float32x4_t x = { 1.0f, 0.0f, 0.0f, 0.0f };
+	const float32_t xData[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+	const float32x4_t x = vld1q_f32(xData);
 	return x;
 }
 
 PX_FORCE_INLINE Vec3V V3UnitY()
 {
-	const float32x4_t y = { 0, 1.0f, 0, 0 };
+	const float32_t yData[4] = { 0, 1.0f, 0, 0 };
+	const float32x4_t y = vld1q_f32(yData);
 	return y;
 }
 
 PX_FORCE_INLINE Vec3V V3UnitZ()
 {
-	const float32x4_t z = { 0, 0, 1.0f, 0 };
+	const float32_t zData[4] = { 0, 0, 1.0f, 0 };
+	const float32x4_t z = vld1q_f32(zData);
 	return z;
 }
 
@@ -1320,7 +1325,8 @@ PX_FORCE_INLINE Vec3V V3Cross(const Vec3V a, const Vec3V b)
 	ASSERT_ISVALIDVEC3V(a);
 	ASSERT_ISVALIDVEC3V(b);
 
-	const uint32x2_t TF = { 0xffffFFFF, 0x0 };
+	const uint32_t TFData[2] = { 0xffffFFFF, 0x0 };
+	const uint32x2_t TF = vld1_u32(TFData);
 	const float32x2_t ay_ax = vget_low_f32(a);  // d2
 	const float32x2_t aw_az = vget_high_f32(a); // d3
 	const float32x2_t by_bx = vget_low_f32(b);  // d4
@@ -1639,7 +1645,8 @@ PX_FORCE_INLINE Vec3V V3PermXYX(const Vec3V a)
 {
 	ASSERT_ISVALIDVEC3V(a);
 
-	const uint32x2_t mask = { 0xffffFFFF, 0x0 };
+	const uint32_t maskData[2] = { 0xffffFFFF, 0x0 };
+	const uint32x2_t mask = vld1_u32(maskData);
 	const uint32x2_t xy = vget_low_u32(vreinterpretq_u32_f32(a));
 	const uint32x2_t xw = vand_u32(xy, mask);
 	return vreinterpretq_f32_u32(vcombine_u32(xy, xw));
@@ -1649,7 +1656,8 @@ PX_FORCE_INLINE Vec3V V3PermYZX(const Vec3V a)
 {
 	ASSERT_ISVALIDVEC3V(a);
 
-	const uint32x2_t mask = { 0xffffFFFF, 0x0 };
+	const uint32_t maskData[2] = { 0xffffFFFF, 0x0 };
+	const uint32x2_t mask = vld1_u32(maskData);
 	const uint32x2_t xy = vget_low_u32(vreinterpretq_u32_f32(a));
 	const uint32x2_t zw = vget_high_u32(vreinterpretq_u32_f32(a));
 	const uint32x2_t yz = vext_u32(xy, zw, 1);
@@ -1689,7 +1697,8 @@ PX_FORCE_INLINE Vec3V V3PermYXX(const Vec3V a)
 {
 	ASSERT_ISVALIDVEC3V(a);
 
-	const uint32x2_t mask = { 0xffffFFFF, 0x0 };
+	const uint32_t maskData[2] = { 0xffffFFFF, 0x0 };
+	const uint32x2_t mask = vld1_u32(maskData);
 	const uint32x2_t xy = vget_low_u32(vreinterpretq_u32_f32(a));
 	const uint32x2_t yx = vrev64_u32(xy);
 	const uint32x2_t xw = vand_u32(xy, mask);
@@ -1714,7 +1723,8 @@ PX_FORCE_INLINE Vec3V V3Perm_0Z_Zero_1X(const Vec3V v0, const Vec3V v1)
 	ASSERT_ISVALIDVEC3V(v0);
 	ASSERT_ISVALIDVEC3V(v1);
 
-	const uint32x2_t mask = { 0xffffFFFF, 0x0 };
+	const uint32_t maskData[2] = { 0xffffFFFF, 0x0 };
+	const uint32x2_t mask = vld1_u32(maskData);
 	const uint32x2_t zw = vget_high_u32(vreinterpretq_u32_f32(v0));
 	const uint32x2_t xy = vget_low_u32(vreinterpretq_u32_f32(v1));
 	const uint32x2_t xw = vand_u32(xy, mask);
@@ -2235,7 +2245,8 @@ PX_FORCE_INLINE FloatV V4Dot3(const Vec4V aa, const Vec4V bb)
 
 PX_FORCE_INLINE Vec4V V4Cross(const Vec4V a, const Vec4V b)
 {
-	const uint32x2_t TF = { 0xffffFFFF, 0x0 };
+	const uint32_t TFData[2] = { 0xffffFFFF, 0x0 };
+	const uint32x2_t TF = vld1_u32(TFData);
 	const float32x2_t ay_ax = vget_low_f32(a);  // d2
 	const float32x2_t aw_az = vget_high_f32(a); // d3
 	const float32x2_t by_bx = vget_low_f32(b);  // d4
@@ -3120,7 +3131,8 @@ PX_FORCE_INLINE Mat44V M44Inverse(const Mat44V& a)
 
 PX_FORCE_INLINE Vec4V V4LoadXYZW(PxF32 x, PxF32 y, PxF32 z, PxF32 w)
 {
-	const float32x4_t ret = { x, y, z, w };
+	const float32_t retData[4] = { x, y, z, w };
+	const float32x4_t ret = vld1q_f32(retData);
 	return ret;
 }
 
@@ -3179,7 +3191,8 @@ PX_FORCE_INLINE VecU16V V4U16Andc(VecU16V a, VecU16V b)
 
 PX_FORCE_INLINE VecI32V I4LoadXYZW(const PxI32& x, const PxI32& y, const PxI32& z, const PxI32& w)
 {
-	const int32x4_t ret = { x, y, z, w };
+	const int32_t retData[4] = { x, y, z, w };
+	const int32x4_t ret = vld1q_s32(retData);
 	return ret;
 }
 
@@ -3275,13 +3288,15 @@ PX_FORCE_INLINE VecI32V VecI32V_RightShift(const VecI32VArg a, const VecShiftVAr
 
 PX_FORCE_INLINE VecI32V VecI32V_LeftShift(const VecI32VArg a, const PxU32 count)
 {
-	const int32x4_t shiftCount = { (PxI32)count, (PxI32)count, (PxI32)count, (PxI32)count };	
+	const int32_t shiftCountData[4] = { (PxI32)count, (PxI32)count, (PxI32)count, (PxI32)count };
+	const int32x4_t shiftCount = vld1q_s32(shiftCountData);
 	return vshlq_s32(a, shiftCount);
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_RightShift(const VecI32VArg a, const PxU32 count)
 {
-	const int32x4_t shiftCount = { -(PxI32)count, -(PxI32)count, -(PxI32)count, -(PxI32)count };
+	const int32_t shiftCountData[4] = { -(PxI32)count, -(PxI32)count, -(PxI32)count, -(PxI32)count };
+	const int32x4_t shiftCount = vld1q_s32(shiftCountData);
 	return vshlq_s32(a, shiftCount);
 }
 
@@ -3507,9 +3522,13 @@ template <> PX_FORCE_INLINE VecU32V V4U32SplatElement<3>(VecU32V a) { return vdu
 template <int index>
 PX_FORCE_INLINE Vec4V V4SplatElement(Vec4V a)
 {
-	if(index < 2)
+	if(index == 0)
 	{
-		return vdupq_lane_f32(vget_low_f32(a), index);
+		return vdupq_lane_f32(vget_low_f32(a), 0);
+	}
+	else if (index == 1)
+	{
+		return vdupq_lane_f32(vget_low_f32(a), 1);
 	}
 	else if(index == 2)
 	{
@@ -3531,7 +3550,8 @@ template <> PX_FORCE_INLINE Vec4V V4SplatElement<3>(Vec4V a) { return vdupq_lane
 
 PX_FORCE_INLINE VecU32V U4LoadXYZW(PxU32 x, PxU32 y, PxU32 z, PxU32 w)
 {
-	const uint32x4_t ret = { x, y, z, w };
+	const uint32_t retData[4] = { x, y, z, w };
+	const uint32x4_t ret = vld1q_u32(retData);
 	return ret;
 }
 

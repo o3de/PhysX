@@ -10,7 +10,6 @@ cmake_minimum_required(VERSION 3.21)
 set(PHYSX_PRESET "" CACHE STRING "PhysX build preset (e.g., vc17win64, linux-gcc, vc17win64-cpu-only)")
 
 # GPU options must be set before project() to determine CUDA language requirement
-option(PX_GENERATE_GPU_PROJECTS "Generate GPU projects" ON)
 
 # Apply preset switches (PX_GENERATE_GPU_PROJECTS, etc.) BEFORE project() so that
 # cpu-only presets can disable CUDA without requiring a separate command-line flag.
@@ -19,6 +18,7 @@ if(PHYSX_PRESET)
   include("${CMAKE_CURRENT_LIST_DIR}/buildtools/cmake/PhysXPresets.cmake")
   physx_apply_preset_switches(${PHYSX_PRESET})
 endif()
+option(PX_GENERATE_GPU_PROJECTS "Generate GPU projects" ON)
 
 # Detect top-level before project() - PROJECT_IS_TOP_LEVEL is only available
 # after project() is called, so we check manually here.
@@ -52,6 +52,9 @@ set(_PX_VERSION "${_PX_VER_MAJOR}.${_PX_VER_MINOR}.${_PX_VER_BUGFIX}")
 message(STATUS "PhysX version: ${_PX_VERSION} (from PxPhysicsVersion.h)")
 
 if(PX_GENERATE_GPU_PROJECTS)
+  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES OFF CACHE STRING "CUDA architectures. OFF uses PhysX defaults")
+  endif()
   if(_PHYSX_IS_TOP_LEVEL_FOR_PROJECT)
     # Top-level: declare all languages in project() - this is the normal case
     project(PhysX VERSION ${_PX_VERSION} LANGUAGES C CXX CUDA)
@@ -188,6 +191,10 @@ endif()
 if(NOT DEFINED TARGET_BUILD_PLATFORM)
 if(WIN32)
     set(TARGET_BUILD_PLATFORM "windows" CACHE INTERNAL "Target build platform")
+elseif(ANDROID)
+    set(TARGET_BUILD_PLATFORM "android" CACHE INTERNAL "Target build platform")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(TARGET_BUILD_PLATFORM "ios" CACHE INTERNAL "Target build platform")
 elseif(APPLE)
     set(TARGET_BUILD_PLATFORM "mac" CACHE INTERNAL "Target build platform")
   elseif(UNIX)
@@ -196,14 +203,13 @@ elseif(APPLE)
 endif()
 
 if(NOT DEFINED PX_OUTPUT_ARCH)
-  if(TARGET_BUILD_PLATFORM STREQUAL "windows" OR TARGET_BUILD_PLATFORM STREQUAL "mac")
+  if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64"
+      OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$"
+      OR ANDROID_ABI STREQUAL "arm64-v8a"
+      OR CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64")
+    set(PX_OUTPUT_ARCH "arm" CACHE INTERNAL "Output architecture")
+  else()
     set(PX_OUTPUT_ARCH "x86" CACHE INTERNAL "Output architecture")
-  elseif(TARGET_BUILD_PLATFORM STREQUAL "linux")
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-      set(PX_OUTPUT_ARCH "arm" CACHE INTERNAL "Output architecture")
-    else()
-      set(PX_OUTPUT_ARCH "x86" CACHE INTERNAL "Output architecture")
-    endif()
   endif()
 endif()
 
@@ -271,34 +277,12 @@ if(DEFINED ENV{GENERATE_SOURCE_DISTRO} AND "$ENV{GENERATE_SOURCE_DISTRO}" STREQU
   set(PX_GENERATE_SOURCE_DISTRO 1)
 endif()
 
-# CUDA Integration (GPU enabled, not cross-compiling, Windows or Linux only)
-if(PX_GENERATE_GPU_PROJECTS AND NOT CMAKE_CROSSCOMPILING AND (TARGET_BUILD_PLATFORM STREQUAL "windows" OR TARGET_BUILD_PLATFORM STREQUAL "linux"))
-  # Set CUDA Toolkit root before searching (if provided via environment)
+# GPU dependencies are build-time requirements. Shared GPU libraries load on demand.
+if(PX_GENERATE_GPU_PROJECTS)
   if(DEFINED ENV{PM_CUDA_PATH})
     set(CUDAToolkit_ROOT "$ENV{PM_CUDA_PATH}" CACHE PATH "CUDA Toolkit root directory")
-    message(STATUS "Using CUDA Toolkit at: $ENV{PM_CUDA_PATH}")
   endif()
-  
-  find_package(CUDAToolkit QUIET)
-  if(CUDAToolkit_FOUND)
-    message(STATUS "Found CUDAToolkit: ${CUDAToolkit_VERSION}")
-    message(STATUS "CUDAToolkit_LIBRARY_DIR: ${CUDAToolkit_LIBRARY_DIR}")
-  else()
-    message(WARNING "CUDAToolkit not found - GPU builds may have linking issues. Ensure CUDA is installed.")
-  endif()
-  
-  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 75 CACHE STRING "CUDA architectures")
-  endif()
-  message(STATUS "CUDA enabled with architecture ${CMAKE_CUDA_ARCHITECTURES}")
-  
-  if(DEFINED ENV{PM_CUDA_PATH})
-    if((COMPILER STREQUAL "vc15" OR COMPILER STREQUAL "vc16" OR COMPILER STREQUAL "vc17") AND NOT GENERATOR STREQUAL "ninja")
-      # Additional CUDA flags could be passed here if required.
-    elseif(COMPILER STREQUAL "clang" AND DEFINED ENV{PM_clang_PATH})
-      set(CMAKE_CUDA_HOST_COMPILER "$ENV{PM_clang_PATH}/bin/clang++")
-    endif()
-  endif()
+  find_package(CUDAToolkit REQUIRED)
 endif()
 
 # Platform/arch already set earlier via if(NOT DEFINED ...) guards
@@ -344,93 +328,6 @@ if(PX_GENERATE_GPU_PROJECTS)
   else()
     add_subdirectory(${PHYSX_ROOT_DIR}/source/compiler/cmakegpu ${CMAKE_CURRENT_BINARY_DIR}/sdk_gpu_source_bin EXCLUDE_FROM_ALL)
   endif()
-
-  # Link PhysXGpu against CUDA driver library
-  if(TARGET PhysXGpu)
-    message(STATUS "=== Configuring PhysXGpu CUDA linking ===")
-    
-    # Use PUBLIC linkage for static libs (dependencies must propagate to consumers)
-    # Use PRIVATE linkage for shared libs (dependencies are internal)
-    if(PX_GENERATE_GPU_STATIC_LIBRARIES)
-      set(CUDA_LINK_SCOPE PUBLIC)
-      message(STATUS "PhysXGpu is STATIC - using PUBLIC linkage for CUDA libs")
-    else()
-      set(CUDA_LINK_SCOPE PRIVATE)
-      message(STATUS "PhysXGpu is SHARED - using PRIVATE linkage for CUDA libs")
-    endif()
-    
-    # Link against CUDA driver API (libcuda.so on Linux, cuda.lib on Windows)
-    # Background: libcuda.so.1 is part of the NVIDIA GPU driver, not the CUDA Toolkit.
-    # The CUDA Toolkit includes stub libraries specifically for building without GPU drivers.
-    # This is the standard approach for CI/CD environments and cross-compilation scenarios.
-    
-    # Strategy:
-    # 1. Try to find the real driver library first (dev machines with NVIDIA driver installed)
-    # 2. Fall back to stub library (CI/Docker without GPU driver, cross-compilation)
-    # 3. Error if neither is found
-    
-    # Try to find the real driver library first (requires NVIDIA driver to be installed)
-    find_library(CUDA_DRIVER_LIBRARY_REAL 
-      NAMES cuda 
-      PATHS /usr/lib /usr/lib64 /usr/local/cuda ${CUDAToolkit_LIBRARY_DIR}
-      PATH_SUFFIXES lib64 lib/x64 lib lib64/nvidia lib/nvidia nvidia-cuda-toolkit/lib64
-      NO_DEFAULT_PATH
-    )
-    
-    # Fallback to stub library (designed for linking without GPU driver present)
-    if(NOT CUDA_DRIVER_LIBRARY_REAL)
-      find_library(CUDA_DRIVER_LIBRARY_STUB
-        NAMES cuda
-        PATHS /usr/local/cuda ${CUDAToolkit_LIBRARY_DIR}
-        PATH_SUFFIXES lib64/stubs lib/stubs stubs lib/x64/stubs
-      )
-      if(CUDA_DRIVER_LIBRARY_STUB)
-        set(CUDA_DRIVER_LIBRARY ${CUDA_DRIVER_LIBRARY_STUB})
-        message(STATUS "[OK] Using CUDA driver stub library: ${CUDA_DRIVER_LIBRARY}")
-        message(STATUS "  (Stub libraries are for build-time linking; real driver needed at runtime)")
-      endif()
-    else()
-      set(CUDA_DRIVER_LIBRARY ${CUDA_DRIVER_LIBRARY_REAL})
-      message(STATUS "[OK] Found real CUDA driver library: ${CUDA_DRIVER_LIBRARY}")
-    endif()
-    
-    # Link the library we found
-    if(CUDA_DRIVER_LIBRARY)
-      target_link_libraries(PhysXGpu ${CUDA_LINK_SCOPE} ${CUDA_DRIVER_LIBRARY})
-    else()
-      message(FATAL_ERROR 
-        "[ERROR] CUDA driver library (libcuda) not found - required for GPU builds.\n"
-        "  Solutions:\n"
-        "  1. Install NVIDIA driver (provides libcuda.so.1)\n"
-        "  2. Install CUDA Toolkit (provides stub libraries in lib64/stubs/)\n"
-        "  3. Disable GPU projects: -DPX_GENERATE_GPU_PROJECTS=OFF\n"
-        "  Searched paths:\n"
-        "    - /usr/lib, /usr/lib64, /usr/local/cuda\n"
-        "    - ${CUDAToolkit_LIBRARY_DIR}")
-    endif()
-    
-    # Also link CUDA runtime if available
-    if(TARGET CUDA::cudart)
-      message(STATUS "[OK] Linking PhysXGpu with CUDA::cudart")
-      target_link_libraries(PhysXGpu ${CUDA_LINK_SCOPE} CUDA::cudart)
-    else()
-      message(STATUS "[WARN] CUDA::cudart target not available")
-    endif()
-    message(STATUS "=== PhysXGpu CUDA linking complete ===")
-  endif()
-
-  if(WIN32)
-    # Prevent the duplicate "_64" on windows platforms by clearing the auto-appended postfixes
-    if(TARGET PhysXGpu)
-      set_target_properties(PhysXGpu PROPERTIES
-        DEBUG_POSTFIX   ""
-        RELEASE_POSTFIX ""
-        PROFILE_POSTFIX ""
-        CHECKED_POSTFIX ""
-      )
-    endif()
-
-  endif()
 endif()
 
 # Record the two build-output directories as CMake variables
@@ -470,6 +367,9 @@ foreach(lib IN ITEMS PhysX PhysXCommon PhysXFoundation PhysXExtensions PhysXPvdS
     message(STATUS "Linking physx_lib with ${lib}")
     target_link_libraries(physx_lib INTERFACE ${lib})
     list(APPEND PHYSX_LIBS ${lib})
+    if(PX_GENERATE_STATIC_LIBRARIES)
+      target_compile_definitions(${lib} INTERFACE PX_PHYSX_STATIC_LIB)
+    endif()
     
     # Add DISABLE_CUDA_PHYSX to each library's interface when GPU is disabled
     # This ensures consumers (both FetchContent and find_package) get the definition
@@ -545,42 +445,30 @@ foreach(lib IN LISTS PHYSX_LIBS)
   # to avoid source directory path issues. We set our own include paths above.
 endforeach()
 
-# GPU and CUDA integration
-if(NOT CMAKE_CROSSCOMPILING AND (TARGET_BUILD_PLATFORM STREQUAL "windows" OR TARGET_BUILD_PLATFORM STREQUAL "linux"))
-  if(TARGET PhysXGpu)
-    message(STATUS "Linking physx_lib with PhysXGpu")
+# Keep the shared GPU plugin out of CPU consumers' link dependencies.
+set(PHYSX_INSTALL_LIBS ${PHYSX_LIBS})
+if(TARGET PhysXGpu)
+  list(APPEND PHYSX_INSTALL_LIBS PhysXGpu)
+  if(PX_GENERATE_GPU_STATIC_LIBRARIES)
     target_link_libraries(physx_lib INTERFACE PhysXGpu)
-    list(APPEND PHYSX_LIBS PhysXGpu)
-  endif()
-  
-  # Link CUDA libraries to physx_lib for consumers
-  # Note: PhysXGpu uses PRIVATE linkage for shared libs, so deps don't propagate
-  # Consumers need to link against CUDA libs directly when using shared PhysXGpu
-  if(PX_GENERATE_GPU_PROJECTS)
-    if(CUDAToolkit_FOUND)
-      message(STATUS "Linking physx_lib with CUDA::cudart")
-      target_link_libraries(physx_lib INTERFACE CUDA::cudart)
-    endif()
-    
-    if(CUDA_DRIVER_LIBRARY)
-      message(STATUS "Linking physx_lib with CUDA driver library: ${CUDA_DRIVER_LIBRARY}")
-      target_link_libraries(physx_lib INTERFACE ${CUDA_DRIVER_LIBRARY})
-    else()
-      message(WARNING "CUDA driver library not available for physx_lib consumers")
-    endif()
   endif()
 endif()
-
-set(PHYSX_INSTALL_LIBS ${PHYSX_LIBS})
 if(TARGET PVDRuntime)
   list(APPEND PHYSX_INSTALL_LIBS PVDRuntime)
 endif()
 
 message(STATUS "PhysX CMake configuration complete")
 
+set(_PHYSX_INSTALL_RPATH "$ORIGIN")
+if(APPLE)
+  set(_PHYSX_INSTALL_RPATH "@loader_path")
+endif()
+
 # Only execute installation commands when appropriate
 if(PX_ENABLE_INSTALL)
   message(STATUS "PhysX installation enabled")
+
+  install(FILES "${PHYSX_ROOT_DIR}/LICENSE.md" DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/PhysX")
 
   # Install PhysX headers
   install(DIRECTORY ${PHYSX_ROOT_DIR}/include/
@@ -588,11 +476,11 @@ if(PX_ENABLE_INSTALL)
           FILES_MATCHING PATTERN "*.h*")
 
   # Set RPATH on shared libraries so they can find each other after installation
-  foreach(_lib IN LISTS PHYSX_LIBS)
+  foreach(_lib IN LISTS PHYSX_INSTALL_LIBS)
     if(TARGET ${_lib})
       get_target_property(_lib_type ${_lib} TYPE)
       if(_lib_type STREQUAL "SHARED_LIBRARY")
-        set_target_properties(${_lib} PROPERTIES INSTALL_RPATH "$ORIGIN")
+        set_target_properties(${_lib} PROPERTIES INSTALL_RPATH "${_PHYSX_INSTALL_RPATH}")
       endif()
     endif()
   endforeach()
@@ -603,6 +491,7 @@ if(PX_ENABLE_INSTALL)
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR}
       INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
   # Export the targets for find_package
@@ -656,11 +545,12 @@ else()
     # Install with proper RPATH settings so libraries can find each other
     set_target_properties(${SHARED_LIBS_TO_INSTALL}
         PROPERTIES
-        INSTALL_RPATH "$ORIGIN"
+        INSTALL_RPATH "${_PHYSX_INSTALL_RPATH}"
         BUILD_WITH_INSTALL_RPATH TRUE)
 
     install(TARGETS ${SHARED_LIBS_TO_INSTALL}
         LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
         # Note: for shared libraries on Windows, CMake also generates DLL import
         # libraries (.lib) and installs them via the ARCHIVE destination.

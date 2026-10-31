@@ -8,7 +8,7 @@
 
 #include "foundation/PxPreprocessor.h"
 
-#if PX_LINUX || PX_OSX
+#if PX_LINUX_FAMILY || PX_APPLE_FAMILY
 
 #if PX_X86 || PX_X64
 #if PX_EMSCRIPTEN
@@ -55,6 +55,6 @@ PX_INLINE physx::PxSIMDGuard::~PxSIMDGuard()
 
 #else
 	#error No SIMD implementation for this unix platform.
-#endif // PX_LINUX || PX_OSX
+#endif // PX_LINUX_FAMILY || PX_APPLE_FAMILY
 
 #endif

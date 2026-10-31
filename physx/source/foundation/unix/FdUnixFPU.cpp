@@ -5,13 +5,13 @@
 
 #include "foundation/PxFPU.h"
 
-#if !defined(__CYGWIN__)
+#if !(defined(__CYGWIN__) || PX_ANDROID)
 #include <fenv.h>
 PX_COMPILE_TIME_ASSERT(8 * sizeof(uint32_t) >= sizeof(fenv_t));
 #endif
 
-#if PX_OSX
-// osx defines SIMD as standard for floating point operations.
+#if (PX_APPLE_FAMILY || PX_ANDROID) && PX_INTEL_FAMILY
+// X64 uses SSE for floating point operations.
 #include <xmmintrin.h>
 #endif
 
@@ -19,7 +19,9 @@ physx::PxFPUGuard::PxFPUGuard()
 {
 #if defined(__CYGWIN__)
 #pragma message "FPUGuard::FPUGuard() is not implemented"
-#elif PX_OSX
+#elif PX_ANDROID && !PX_INTEL_FAMILY
+// not supported unless ARM_HARD_FLOAT is enabled.
+#elif (PX_APPLE_FAMILY || PX_ANDROID) && PX_INTEL_FAMILY
 	mControlWords[0] = _mm_getcsr();
 	// set default (disable exceptions: _MM_MASK_MASK) and FTZ (_MM_FLUSH_ZERO_ON), DAZ (_MM_DENORMALS_ZERO_ON: (1<<6))
 	_mm_setcsr(_MM_MASK_MASK | _MM_FLUSH_ZERO_ON | (1 << 6));
@@ -44,7 +46,9 @@ physx::PxFPUGuard::~PxFPUGuard()
 {
 #if defined(__CYGWIN__)
 #pragma message "PxFPUGuard::~PxFPUGuard() is not implemented"
-#elif PX_OSX
+#elif PX_ANDROID && !PX_INTEL_FAMILY
+// not supported unless ARM_HARD_FLOAT is enabled.
+#elif (PX_APPLE_FAMILY || PX_ANDROID) && PX_INTEL_FAMILY
 	// restore control word and clear exception flags
 	// (setting exception state flags cause exceptions on the first following fp operation)
 	_mm_setcsr(mControlWords[0] & ~_MM_EXCEPT_MASK);
@@ -60,7 +64,7 @@ PX_FOUNDATION_API void physx::PxEnableFPExceptions()
 #if PX_LINUX && !defined(__EMSCRIPTEN__)
 	feclearexcept(FE_ALL_EXCEPT);
 	feenableexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW);
-#elif PX_OSX
+#elif (PX_APPLE_FAMILY || PX_ANDROID) && PX_INTEL_FAMILY
 	// clear any pending exceptions
 	// (setting exception state flags cause exceptions on the first following fp operation)
 	uint32_t control = _mm_getcsr() & ~_MM_EXCEPT_MASK;
@@ -76,7 +80,7 @@ PX_FOUNDATION_API void physx::PxDisableFPExceptions()
 {
 #if PX_LINUX && !defined(__EMSCRIPTEN__)
 	fedisableexcept(FE_ALL_EXCEPT);
-#elif PX_OSX
+#elif (PX_APPLE_FAMILY || PX_ANDROID) && PX_INTEL_FAMILY
 	// clear any pending exceptions
 	// (setting exception state flags cause exceptions on the first following fp operation)
 	uint32_t control = _mm_getcsr() & ~_MM_EXCEPT_MASK;

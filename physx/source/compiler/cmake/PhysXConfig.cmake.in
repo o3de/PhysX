@@ -6,7 +6,7 @@
 include(CMakeFindDependencyMacro)
 
 # Find dependencies that PhysX requires
-if(@PX_GENERATE_GPU_PROJECTS@ OR @PX_GENERATE_GPU_PROJECTS_ONLY@)
+if((@PX_GENERATE_GPU_PROJECTS@ OR @PX_GENERATE_GPU_PROJECTS_ONLY@) AND @PX_GENERATE_GPU_STATIC_LIBRARIES@)
     find_dependency(CUDAToolkit REQUIRED)
 endif()
 
@@ -29,7 +29,7 @@ set(PhysX_LIBRARIES
     PhysX::PhysXPvdSDK
 )
 
-if(TARGET PhysX::PhysXGpu)
+if(TARGET PhysX::PhysXGpu AND @PX_GENERATE_GPU_STATIC_LIBRARIES@)
     list(APPEND PhysX_LIBRARIES PhysX::PhysXGpu)
 endif()
 

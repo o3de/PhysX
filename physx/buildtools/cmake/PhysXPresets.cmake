@@ -51,6 +51,19 @@ function(physx_apply_preset_switches preset_name)
     message(STATUS "Applying preset switches from: ${_PHYSX_PRESET_FILE}")
     file(READ "${_PHYSX_PRESET_FILE}" PRESET_CONTENT)
     physx_parse_cmake_switches("${PRESET_CONTENT}")
+    foreach(PARAM_NAME TARGET_BUILD_PLATFORM PX_OUTPUT_ARCH CMAKE_SYSTEM_NAME CMAKE_SYSTEM_PROCESSOR
+            CMAKE_OSX_ARCHITECTURES CMAKE_OSX_SYSROOT CMAKE_OSX_DEPLOYMENT_TARGET
+            CMAKE_TOOLCHAIN_FILE ANDROID_ABI ANDROID_PLATFORM)
+        string(REGEX MATCH "cmakeParam name=\"${PARAM_NAME}\" value=\"([^\"]+)\"" PARAM_MATCH "${PRESET_CONTENT}")
+        if(PARAM_MATCH)
+            set(PARAM_VALUE "${CMAKE_MATCH_1}")
+            if(PARAM_NAME STREQUAL "CMAKE_TOOLCHAIN_FILE" AND NOT IS_ABSOLUTE "${PARAM_VALUE}")
+                set(PARAM_VALUE "${_PHYSX_ROOT_DIR}/${PARAM_VALUE}")
+            endif()
+            set(${PARAM_NAME} "${PARAM_VALUE}" CACHE STRING "Set by preset ${preset_name}")
+        endif()
+    endforeach()
+
     message(STATUS "PhysX preset '${preset_name}' switches applied (phase 1 - before project)")
 endfunction()
 

@@ -8,7 +8,7 @@
 
 #include "foundation/PxAssert.h"
 
-#if !(PX_LINUX || PX_APPLE_FAMILY)
+#if !(PX_LINUX || PX_ANDROID || PX_APPLE_FAMILY)
 #error "This file should only be included by Unix builds!!"
 #endif
 

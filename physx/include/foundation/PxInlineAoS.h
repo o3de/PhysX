@@ -8,7 +8,10 @@
 
 #include "foundation/PxPreprocessor.h"
 
-#if PX_WINDOWS
+#if PX_WINDOWS_FAMILY && PX_NEON
+#include "windows/PxWindowsTrigConstants.h"
+#include "unix/neon/PxUnixNeonInlineAoS.h"
+#elif PX_WINDOWS
 #include "windows/PxWindowsTrigConstants.h"
 #include "windows/PxWindowsInlineAoS.h"
 #elif(PX_UNIX_FAMILY || PX_SWITCH)

@@ -53,7 +53,11 @@ namespace physx
 */
 PX_FORCE_INLINE void PxMemoryBarrier()
 {
+#if PX_A64
+	__dmb(_ARM64_BARRIER_ISH);
+#else
 	_ReadWriteBarrier();
+#endif
 	/* long Barrier;
 	__asm {
 	    xchg Barrier, eax

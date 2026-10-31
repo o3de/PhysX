@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<preset name="vc17win-arm" comment="VS2022 Windows ARM CPU SDK">
+  <platform targetPlatform="winArm64" compiler="vc17" />
+  <CMakeSwitches>
+    <cmakeSwitch name="PX_BUILDSNIPPETS" value="False" />
+    <cmakeSwitch name="PX_BUILDPVDRUNTIME" value="True" />
+    <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="False" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="False" />
+    <cmakeSwitch name="NV_USE_STATIC_WINCRT" value="False" />
+    <cmakeSwitch name="NV_USE_DEBUG_WINCRT" value="True" />
+  </CMakeSwitches>
+  <CMakeParams>
+    <cmakeParam name="TARGET_BUILD_PLATFORM" value="windows" />
+    <cmakeParam name="PX_OUTPUT_ARCH" value="arm" />
+    <cmakeParam name="CMAKE_SYSTEM_NAME" value="Windows" />
+    <cmakeParam name="CMAKE_SYSTEM_PROCESSOR" value="ARM64" />
+    <cmakeParam name="CMAKE_INSTALL_PREFIX" value="install/vc17win-arm/PhysX" />
+  </CMakeParams>
+</preset>

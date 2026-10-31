@@ -1,0 +1,418 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      android-arm:
+        description: Android ARM
+        type: boolean
+        default: true
+      android-x64:
+        description: Android X64
+        type: boolean
+        default: true
+      ios-arm:
+        description: iOS
+        type: boolean
+        default: true
+      ios-simulator-arm:
+        description: iOS Simulator ARM
+        type: boolean
+        default: true
+      ios-simulator-x64:
+        description: iOS Simulator X64
+        type: boolean
+        default: true
+      linux-arm:
+        description: Linux ARM
+        type: boolean
+        default: true
+      linux-x64:
+        description: Linux X64
+        type: boolean
+        default: true
+      mac-arm:
+        description: Mac ARM
+        type: boolean
+        default: true
+      mac-x64:
+        description: Mac X64
+        type: boolean
+        default: true
+      windows-arm:
+        description: Windows ARM
+        type: boolean
+        default: true
+      windows-x64:
+        description: Windows X64
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  CUDA_VERSION: '12.8.1'
+
+jobs:
+  matrix:
+    name: Matrix
+    runs-on: ubuntu-slim
+    outputs:
+      targets: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - id: targets
+        env:
+          INPUTS: ${{ toJSON(inputs) }}
+        shell: python {0}
+        run: |
+          import json
+          import os
+          inputs = json.loads(os.environ["INPUTS"])
+          targets = [
+              ("android-arm", "ubuntu-22.04", "android-arm64-v8a"),
+              ("android-x64", "ubuntu-22.04", "android-x64"),
+              ("ios-arm", "macos-15", "ios64"),
+              ("ios-simulator-arm", "macos-15", "ios-simulator-arm64"),
+              ("ios-simulator-x64", "macos-15", "ios-simulator-x64"),
+              ("linux-arm", "ubuntu-22.04", "linux-aarch64-crosscompile"),
+              ("linux-x64", "ubuntu-22.04", "linux-clang"),
+              ("mac-arm", "macos-15", "mac-arm64"),
+              ("mac-x64", "macos-15", "mac64"),
+              ("windows-arm", "windows-2022", "vc17win-arm"),
+              ("windows-x64", "windows-2022", "vc17win64"),
+          ]
+          matrix = {"include": [
+              dict(target=target, runner=runner, preset=preset, linkage=linkage,
+                   gpu=target in ("windows-x64", "linux-x64", "linux-arm"))
+              for target, runner, preset in targets
+              if inputs[target]
+              for linkage in ("static", "shared")
+          ]}
+          assert matrix["include"], "Select at least one target platform"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write("matrix=" + json.dumps(matrix) + "\n")
+
+  build:
+    name: Build ${{ matrix.target }} (${{ matrix.linkage }})
+    needs: matrix
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.gpu && 240 || 120 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+
+      - name: Install build tools
+        run: python -m pip install cmake==4.4.4 ninja==1.13.2
+
+      - name: Configure installed MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: ${{ matrix.target == 'windows-arm' && 'amd64_arm64' || 'x64' }}
+          vsversion: 2022
+
+      - name: Install Linux compilers and ARM target libraries
+        if: startsWith(matrix.target, 'linux-')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang g++-aarch64-linux-gnu
+          echo 'CC=clang' >> "$GITHUB_ENV"
+          echo 'CXX=clang++' >> "$GITHUB_ENV"
+
+      - name: Install CUDA compiler and target libraries
+        if: matrix.gpu
+        shell: python {0}
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import platform
+          import shutil
+          import tarfile
+          import tempfile
+          import urllib.request
+          import zipfile
+
+          base = "https://developer.download.nvidia.com/compute/cuda/redist/"
+          version = os.environ["CUDA_VERSION"]
+          manifest = json.load(urllib.request.urlopen(base + "redistrib_" + version + ".json"))
+          host = "linux-x86_64"
+          if platform.system() == "Windows":
+              host = "windows-x86_64"
+          target = host
+          if os.environ["TARGET"] == "linux-arm":
+              target = "linux-sbsa"
+          root = Path(os.environ["RUNNER_TEMP"]) / "cuda"
+          root.mkdir(parents=True, exist_ok=True)
+          target_root = root
+          if target != host:
+              target_root = root / "targets/sbsa-linux"
+          packages = [("cuda_nvcc", host), ("cuda_cudart", target),
+                      ("cuda_profiler_api", target), ("cuda_cccl", target)]
+          if target != host:
+              packages.append(("cuda_nvcc", target))
+          for name, package_platform in packages:
+              package = manifest[name][package_platform]
+              with tempfile.TemporaryDirectory(dir=os.environ["RUNNER_TEMP"]) as temporary:
+                  temporary = Path(temporary)
+                  archive = temporary / Path(package["relative_path"]).name
+                  urllib.request.urlretrieve(base + package["relative_path"], archive)
+                  digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+                  if digest != package["sha256"]:
+                      raise RuntimeError("CUDA archive checksum mismatch: " + name)
+                  extracted = temporary / "extracted"
+                  if archive.suffix == ".zip":
+                      with zipfile.ZipFile(archive) as package_archive:
+                          package_archive.extractall(extracted)
+                  else:
+                      with tarfile.open(archive) as package_archive:
+                          package_archive.extractall(extracted, filter="data")
+                  directories = list(extracted.iterdir())
+                  if len(directories) != 1 or not directories[0].is_dir():
+                      raise RuntimeError("Unexpected CUDA archive layout: " + name)
+                  destination = target_root
+                  if name == "cuda_nvcc" and package_platform == host:
+                      destination = root
+                  license_dir = root / "licenses" / (name + "-" + package_platform)
+                  license_dir.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(directories[0] / "LICENSE", license_dir / "LICENSE")
+                  if name == "cuda_nvcc" and package_platform != host:
+                      shutil.copytree(directories[0] / "include", target_root / "include", dirs_exist_ok=True, symlinks=True)
+                  else:
+                      shutil.copytree(directories[0], destination, dirs_exist_ok=True, symlinks=True)
+              print("Installed " + name + " for " + package_platform, flush=True)
+          if host == target == "linux-x86_64" and not (root / "lib64").exists():
+              (root / "lib64").symlink_to("lib", target_is_directory=True)
+          nvcc = root / "bin/nvcc"
+          if platform.system() == "Windows":
+              nvcc = nvcc.with_suffix(".exe")
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              output.write("PM_CUDA_PATH=" + root.as_posix() + "\n")
+              output.write("CUDA_PATH=" + root.as_posix() + "\n")
+              output.write("CUDACXX=" + nvcc.as_posix() + "\n")
+          with open(os.environ["GITHUB_PATH"], "a") as output:
+              output.write(str(root / "bin") + "\n")
+
+      - name: Discover active Xcode on Apple Silicon
+        if: runner.os == 'macOS'
+        run: |
+          test "$(uname -m)" = arm64
+          echo "DEVELOPER_DIR=$(xcode-select --print-path)" >> "$GITHUB_ENV"
+          xcodebuild -version
+
+      - name: Select runner Android NDK
+        if: startsWith(matrix.target, 'android-')
+        run: |
+          ndk="${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_HOME:-}}"
+          test -f "$ndk/build/cmake/android.toolchain.cmake"
+          echo "ANDROID_NDK_HOME=$ndk" >> "$GITHUB_ENV"
+          cat "$ndk/source.properties"
+
+      - name: Build and install
+        shell: python {0}
+        env:
+          TARGET: ${{ matrix.target }}
+          PRESET: ${{ matrix.preset }}
+          LINKAGE: ${{ matrix.linkage }}
+          GPU: ${{ matrix.gpu }}
+        run: |
+          import os
+          from pathlib import Path
+          import subprocess
+          target = os.environ["TARGET"]
+          linkage = os.environ["LINKAGE"]
+          generator = "Xcode" if target.startswith(("mac-", "ios-")) else "Ninja"
+          static = "ON" if linkage == "static" else "OFF"
+          pvd = "ON" if target.startswith(("windows-", "linux-")) else "OFF"
+          gpu = "ON" if os.environ["GPU"] == "true" else "OFF"
+          failed = False
+          for config in ("debug", "checked", "profile", "release"):
+              output = (Path("out") / target / linkage / config).resolve()
+              build = output / "build"
+              logs = output / "logs"
+              logs.mkdir(parents=True, exist_ok=True)
+              commands = [
+                  ["cmake", "-S", "physx", "-B", str(build), "-G", generator,
+                   "-DPHYSX_PRESET=" + os.environ["PRESET"],
+                   "-DCMAKE_BUILD_TYPE=" + config, "-DCMAKE_INSTALL_PREFIX=" + str(output / "install"),
+                   "-DPX_OUTPUT_LIB_DIR=" + str(build), "-DPX_OUTPUT_BIN_DIR=" + str(build),
+                   "-DPX_OUTPUT_DLL_DIR=" + str(build), "-DPX_GENERATE_STATIC_LIBRARIES=" + static,
+                   "-DPX_BUILDPVDRUNTIME=" + pvd, "-DPX_BUILDSNIPPETS=OFF",
+                   "-DPX_GENERATE_GPU_PROJECTS=" + gpu, "-DPX_GENERATE_GPU_PROJECTS_ONLY=OFF",
+                   "-DPX_GENERATE_GPU_STATIC_LIBRARIES=OFF",
+                   "-DNV_USE_STATIC_WINCRT=OFF", "-DNV_USE_DEBUG_WINCRT=ON",
+                   "-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO"],
+                  ["cmake", "--build", str(build), "--config", config, "--parallel", "4"],
+                  ["cmake", "--install", str(build), "--config", config],
+              ]
+              for step, command in zip(("configure", "build", "install"), commands):
+                  log = logs / (step + ".log")
+                  with log.open("w") as stream:
+                      result = subprocess.run(command, stdout=stream, stderr=subprocess.STDOUT)
+                  print(log.read_text(errors="replace"), flush=True)
+                  if result.returncode:
+                      failed = True
+                      break
+          raise SystemExit(int(failed))
+
+      - name: Verify installed SDK consumer
+        if: matrix.gpu || matrix.target == 'windows-arm'
+        shell: python {0}
+        env:
+          TARGET: ${{ matrix.target }}
+          LINKAGE: ${{ matrix.linkage }}
+          GPU: ${{ matrix.gpu }}
+        run: |
+          import os
+          from pathlib import Path
+          import shutil
+          import struct
+          import subprocess
+
+          target = os.environ["TARGET"]
+          output = (Path("out") / target / os.environ["LINKAGE"] / "checked").resolve()
+          sdk = output / "install"
+          source = output / "consumer-source"
+          build = output / "consumer-build"
+          source.mkdir(exist_ok=True)
+          (source / "CMakeLists.txt").write_text("""cmake_minimum_required(VERSION 3.21)
+          project(PhysXConsumer LANGUAGES CXX)
+          find_package(PhysX CONFIG REQUIRED)
+          if(EXPECT_GPU)
+            if(NOT TARGET PhysX::PhysXGpu)
+              message(FATAL_ERROR "GPU runtime missing from combined SDK")
+            endif()
+            file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/gpu-path.txt" CONTENT "$<TARGET_FILE:PhysX::PhysXGpu>")
+          elseif(TARGET PhysX::PhysXGpu)
+            message(FATAL_ERROR "CPU-only SDK unexpectedly exports a GPU runtime")
+          endif()
+          get_target_property(deps PhysX::physx_lib INTERFACE_LINK_LIBRARIES)
+          if(deps MATCHES "PhysXGpu|CUDA::")
+            message(FATAL_ERROR "CPU consumer depends on the GPU runtime")
+          endif()
+          add_executable(consumer main.cpp)
+          target_link_libraries(consumer PRIVATE PhysX::physx_lib)
+          target_compile_definitions(consumer PRIVATE NDEBUG EXPECT_GPU=$<BOOL:${EXPECT_GPU}>)
+          """)
+          (source / "main.cpp").write_text("""#include <PxPhysicsAPI.h>
+          #include <foundation/PxVecMath.h>
+          static_assert(bool(PX_SUPPORT_GPU_PHYSX) == bool(EXPECT_GPU), "Unexpected GPU support");
+          #if defined(_M_ARM64)
+          static_assert(PX_WINDOWS_FAMILY && PX_A64 && PX_NEON && COMPILE_VECTOR_INTRINSICS, "Expected Windows ARM NEON");
+          #endif
+          int main()
+          {
+            physx::PxDefaultAllocator allocator;
+            physx::PxDefaultErrorCallback errors;
+            auto* foundation = PxCreateFoundation(PX_PHYSICS_VERSION, allocator, errors);
+            if (!foundation) { return 1; }
+            auto* physics = PxCreatePhysics(PX_PHYSICS_VERSION, *foundation, physx::PxTolerancesScale());
+            if (!physics) { return 2; }
+            const physx::PxVec3 vertices[] = {physx::PxVec3(0, 0, 0), physx::PxVec3(1, 0, 0), physx::PxVec3(0, 0, 1)};
+            const physx::PxU32 indices[] = {0, 1, 2};
+            physx::PxTriangleMeshDesc mesh;
+            mesh.points.count = 3;
+            mesh.points.stride = sizeof(physx::PxVec3);
+            mesh.points.data = vertices;
+            mesh.triangles.count = 1;
+            mesh.triangles.stride = sizeof(indices);
+            mesh.triangles.data = indices;
+            physx::PxDefaultMemoryOutputStream cooked;
+            if (!PxCookTriangleMesh(physx::PxCookingParams(physics->getTolerancesScale()), mesh, cooked)) { return 4; }
+            auto* dispatcher = physx::PxDefaultCpuDispatcherCreate(1);
+            physx::PxSceneDesc desc(physics->getTolerancesScale());
+            desc.cpuDispatcher = dispatcher;
+            desc.filterShader = physx::PxDefaultSimulationFilterShader;
+            auto* scene = physics->createScene(desc);
+            if (!scene) { return 3; }
+            scene->simulate(1.0f / 60.0f);
+            scene->fetchResults(true);
+            physx::PxMemoryBarrier();
+            scene->release();
+            dispatcher->release();
+            physics->release();
+            foundation->release();
+            return 0;
+          }
+          """)
+          commands = [["cmake", "-S", str(source), "-B", str(build), "-G", "Ninja",
+                       "-DCMAKE_BUILD_TYPE=checked", "-DCMAKE_DISABLE_FIND_PACKAGE_CUDAToolkit=ON",
+                       "-DEXPECT_GPU=" + os.environ["GPU"],
+                       "-DPhysX_DIR=" + str(sdk / "lib/cmake/PhysX")]]
+          if target == "linux-arm":
+              commands[0].append("-DCMAKE_TOOLCHAIN_FILE=" + str(Path("physx/buildtools/cmake/linux-aarch64-cross.cmake").resolve()))
+          if target == "windows-arm":
+              commands[0].extend(["-DCMAKE_SYSTEM_NAME=Windows", "-DCMAKE_SYSTEM_PROCESSOR=ARM64"])
+          commands.append(["cmake", "--build", str(build), "--parallel", "2"])
+          for name, command in zip(("consumer-configure", "consumer-build"), commands):
+              log = output / "logs" / (name + ".log")
+              with log.open("w") as stream:
+                  result = subprocess.run(command, stdout=stream, stderr=subprocess.STDOUT)
+              print(log.read_text(errors="replace"), flush=True)
+              result.check_returncode()
+          if target == "windows-arm":
+              binaries = [build / "consumer.exe", *sdk.rglob("*.dll")]
+              for binary in binaries:
+                  data = binary.read_bytes()
+                  assert data[:2] == b"MZ", binary
+                  pe = struct.unpack_from("<I", data, 60)[0]
+                  assert data[pe:pe + 4] == b"PE\0\0" and struct.unpack_from("<H", data, pe + 4)[0] == 0xAA64, binary
+                  print("Verified ARM64 PE: " + str(binary))
+              print("Windows ARM installed-SDK consumer linked. Runtime requires a compatible ARM host.")
+              raise SystemExit(0)
+          gpu = Path((build / "gpu-path.txt").read_text())
+          if target.startswith("linux-"):
+              header = gpu.read_bytes()[:64]
+              expected_machine = 62
+              if target == "linux-arm":
+                  expected_machine = 183
+              assert header[:6] == b"\x7fELF\x02\x01" and struct.unpack_from("<H", header, 18)[0] == expected_machine
+              dynamic = subprocess.check_output(["readelf", "-d", str(gpu)], text=True)
+              assert "libcudart.so" not in dynamic
+              print(dynamic)
+          if target in ("windows-x64", "linux-x64"):
+              executable = build / "consumer"
+              if target == "windows-x64":
+                  executable = executable.with_suffix(".exe")
+                  for dll in (sdk / "bin").glob("*.dll"):
+                      shutil.copy2(dll, build / dll.name)
+                  gpu = build / gpu.name
+              runtime_env = os.environ.copy()
+              if target == "linux-x64":
+                  runtime_env["LD_LIBRARY_PATH"] = str(sdk / "lib") + os.pathsep + runtime_env.get("LD_LIBRARY_PATH", "")
+              hidden = gpu.with_suffix(gpu.suffix + ".unused")
+              for hide_gpu in (False, True):
+                  if hide_gpu:
+                      gpu.rename(hidden)
+                  try:
+                      result = subprocess.run([str(executable)], cwd=build, env=runtime_env, capture_output=True, text=True, timeout=120)
+                      suffix = "absent" if hide_gpu else "present"
+                      (output / ("logs/consumer-runtime-gpu-" + suffix + ".log")).write_text(result.stdout + result.stderr)
+                      print(result.stdout + result.stderr)
+                      result.check_returncode()
+                  finally:
+                      if hide_gpu:
+                          hidden.rename(gpu)
+          print("Combined SDK consumer passed. CPU execution is gated by explicit target compatibility.")
+
+      - name: Upload SDK and build logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: physx-${{ github.sha }}-${{ matrix.target }}-${{ matrix.linkage }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            out/${{ matrix.target }}/${{ matrix.linkage }}/*/install/
+            out/${{ matrix.target }}/${{ matrix.linkage }}/*/logs/

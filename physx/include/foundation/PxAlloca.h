@@ -37,11 +37,11 @@ class PxScopedPointer : private Alloc
 
   // Don't use inline for alloca !!!
 #if PX_WINDOWS_FAMILY
-	#include <malloc.h>
-	#define PxAlloca(x) _alloca(x)
-#elif PX_LINUX
-	#include <malloc.h>
-	#define PxAlloca(x) alloca(x)
+#include <malloc.h>
+#define PxAlloca(x) _alloca(x)
+#elif PX_LINUX || PX_ANDROID
+#include <malloc.h>
+#define PxAlloca(x) alloca(x)
 #elif PX_APPLE_FAMILY
 	#include <alloca.h>
 	#define PxAlloca(x) alloca(x)
