@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<preset name="ios64" comment="O3DE ios64 CPU SDK">
+  <platform targetPlatform="ios64" compiler="xcode" />
+  <CMakeSwitches>
+    <cmakeSwitch name="PX_BUILDSNIPPETS" value="False" />
+    <cmakeSwitch name="PX_BUILDPVDRUNTIME" value="False" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="False" />
+    <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="True" />
+  </CMakeSwitches>
+  <CMakeParams>
+    <cmakeParam name="TARGET_BUILD_PLATFORM" value="ios" />
+    <cmakeParam name="PX_OUTPUT_ARCH" value="arm" />
+    <cmakeParam name="CMAKE_SYSTEM_NAME" value="iOS" />
+    <cmakeParam name="CMAKE_OSX_ARCHITECTURES" value="arm64" />
+    <cmakeParam name="CMAKE_OSX_SYSROOT" value="iphoneos" />
+    <cmakeParam name="CMAKE_OSX_DEPLOYMENT_TARGET" value="14.0" />
+    <cmakeParam name="CMAKE_INSTALL_PREFIX" value="install/ios64/PhysX" />
+  </CMakeParams>
+</preset>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<preset name="linux-aarch64-crosscompile" comment="O3DE linux-aarch64-crosscompile CPU SDK">
+  <platform targetPlatform="linuxAarch64" compiler="clang-linux-cross" />
+  <CMakeSwitches>
+    <cmakeSwitch name="PX_BUILDSNIPPETS" value="False" />
+    <cmakeSwitch name="PX_BUILDPVDRUNTIME" value="True" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="False" />
+    <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="True" />
+  </CMakeSwitches>
+  <CMakeParams>
+    <cmakeParam name="TARGET_BUILD_PLATFORM" value="linux" />
+    <cmakeParam name="PX_OUTPUT_ARCH" value="arm" />
+    <cmakeParam name="CMAKE_TOOLCHAIN_FILE" value="buildtools/cmake/linux-aarch64-cross.cmake" />
+    <cmakeParam name="CMAKE_INSTALL_PREFIX" value="install/linux-aarch64-crosscompile/PhysX" />
+  </CMakeParams>
+</preset>

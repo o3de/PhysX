@@ -1,0 +1,164 @@
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted provided that the following conditions
+## are met:
+##  * Redistributions of source code must retain the above copyright
+##    notice, this list of conditions and the following disclaimer.
+##  * Redistributions in binary form must reproduce the above copyright
+##    notice, this list of conditions and the following disclaimer in the
+##    documentation and/or other materials provided with the distribution.
+##  * Neither the name of NVIDIA CORPORATION nor the names of its
+##    contributors may be used to endorse or promote products derived
+##    from this software without specific prior written permission.
+##
+## THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+## EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+## IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+## PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+## CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+## EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+## PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+## PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+## OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+## (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+## OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+##
+## Copyright (c) 2008-2022 NVIDIA Corporation. All rights reserved.
+
+#TODO: Fix warnings
+SET(CLANG_WARNINGS "-ferror-limit=0 -Wall -Wextra -Werror -Weverything\
+	-Wno-bitwise-instead-of-logical \
+	-Wno-unused-but-set-variable \
+	-Wno-switch-default \
+	-Wno-cast-qual \
+	-Wno-invalid-offsetof \
+	-Wno-unsafe-buffer-usage \
+	-Wno-alloca \
+	-Wno-atomic-implicit-seq-cst \
+	-Wno-c++98-compat-pedantic \
+	-Wno-c++98-compat \
+	-Wno-cast-align \
+	-Wno-conversion \
+	-Wno-covered-switch-default \
+	-Wno-deprecated \
+	-Wno-documentation-deprecated-sync \
+	-Wno-documentation-unknown-command \
+	-Wno-exit-time-destructors \
+	-Wno-extra-semi-stmt \
+	-Wno-float-equal \
+	-Wno-format-nonliteral \
+	-Wno-global-constructors \
+	-Wno-implicit-fallthrough \
+	-Wno-inconsistent-missing-destructor-override \
+	-Wno-inconsistent-missing-override \
+	-Wno-missing-noreturn \
+	-Wno-missing-prototypes \
+	-Wno-missing-variable-declarations \
+	-Wno-newline-eof \
+	-Wno-non-virtual-dtor \
+	-Wno-old-style-cast \
+	-Wno-padded \
+	-Wno-reserved-id-macro \
+	-Wno-suggest-destructor-override \
+	-Wno-suggest-override \
+	-Wno-switch-enum \
+	-Wno-undef \
+	-Wno-undefined-reinterpret-cast \
+	-Wno-unknown-warning-option \
+	-Wno-unreachable-code \
+	-Wno-unused-function \
+	-Wno-unused-macros \
+	-Wno-unused-member-function \
+	-Wno-unused-private-field \
+	-Wno-used-but-marked-unused \
+	-Wno-weak-template-vtables \
+	-Wno-weak-vtables \
+	-Wno-zero-as-null-pointer-constant \
+	-Wno-reserved-identifier \
+	-Wno-undefined-func-template \
+	-Wno-class-varargs \
+	-Wno-invalid-noreturn \
+	-Wno-missing-include-dirs \
+	-Wno-format \
+	-Wno-poison-system-directories \
+	-Wno-nrvo \
+")
+
+SET(PHYSX_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fno-rtti -fno-exceptions -ffunction-sections -fdata-sections -Werror ${CLANG_WARNINGS} -gdwarf-2" CACHE INTERNAL "PhysX CXX")
+
+SET(CMAKE_SHARED_LINKER_FLAGS_CHECKED "")
+SET(CMAKE_SHARED_LINKER_FLAGS_PROFILE "")
+SET(CMAKE_SHARED_LINKER_FLAGS "")
+
+# Build debug info for all configurations
+SET(PHYSX_CXX_FLAGS_DEBUG "-O0 -g" CACHE INTERNAL "PhysX Debug CXX Flags")
+SET(PHYSX_CXX_FLAGS_CHECKED "-O3 -g" CACHE INTERNAL "PhysX Checked CXX Flags")
+SET(PHYSX_CXX_FLAGS_PROFILE "-O3 -g" CACHE INTERNAL "PhysX Profile CXX Flags")
+SET(PHYSX_CXX_FLAGS_RELEASE "-O3 -g" CACHE INTERNAL "PhysX Release CXX Flags")
+
+# These flags are local to the directory the CMakeLists.txt is in
+SET(CMAKE_CXX_FLAGS ${PHYSX_CXX_FLAGS})
+
+SET(CMAKE_CXX_FLAGS_DEBUG   ${PHYSX_CXX_FLAGS_DEBUG})
+SET(CMAKE_CXX_FLAGS_CHECKED ${PHYSX_CXX_FLAGS_CHECKED})
+SET(CMAKE_CXX_FLAGS_PROFILE ${PHYSX_CXX_FLAGS_PROFILE})
+SET(CMAKE_CXX_FLAGS_RELEASE ${PHYSX_CXX_FLAGS_RELEASE})
+
+IF(PUBLIC_RELEASE)
+	SET(PUBLIC_RELEASE_FLAG "PX_PUBLIC_RELEASE=1")
+ELSE()
+	SET(PUBLIC_RELEASE_FLAG "PX_PUBLIC_RELEASE=0")
+ENDIF()
+
+#set(CMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym")
+
+# Controls PX_NVTX for all projects on Mac
+SET(NVTX_FLAG "PX_NVTX=0")
+
+# Disable OmniPVD for all projects on Mac
+SET(PX_SUPPORT_OMNI_PVD_FLAG "PX_SUPPORT_OMNI_PVD=0")
+
+# Disable cuda for all projects
+SET(PHYSX_MAC_COMPILE_DEFS "DISABLE_CUDA_PHYSX;${PHYSX_AUTOBUILD};${PUBLIC_RELEASE_FLAG}" CACHE INTERNAL "Base PhysX preprocessor definitions")
+SET(PHYSX_MAC_DEBUG_COMPILE_DEFS "_DEBUG;PX_DEBUG=1;PX_CHECKED=1;${NVTX_FLAG};PX_SUPPORT_PVD=1;${PX_SUPPORT_OMNI_PVD_FLAG}" CACHE INTERNAL "Debug PhysX preprocessor definitions")
+SET(PHYSX_MAC_CHECKED_COMPILE_DEFS "NDEBUG;PX_CHECKED=1;${NVTX_FLAG};PX_SUPPORT_PVD=1;${PX_SUPPORT_OMNI_PVD_FLAG}" CACHE INTERNAL "Checked PhysX preprocessor definitions")
+SET(PHYSX_MAC_PROFILE_COMPILE_DEFS "NDEBUG;PX_PROFILE=1;${NVTX_FLAG};PX_SUPPORT_PVD=1;${PX_SUPPORT_OMNI_PVD_FLAG}" CACHE INTERNAL "Profile PhysX preprocessor definitions")
+SET(PHYSX_MAC_RELEASE_COMPILE_DEFS "NDEBUG;PX_SUPPORT_PVD=0;PX_SUPPORT_OMNI_PVD=0" CACHE INTERNAL "Release PhysX preprocessor definitions")
+
+
+# Include all of the projects
+INCLUDE(PhysXFoundation.cmake)
+INCLUDE(LowLevel.cmake)
+INCLUDE(LowLevelAABB.cmake)
+INCLUDE(LowLevelDynamics.cmake)
+INCLUDE(PhysX.cmake)
+INCLUDE(PhysXCharacterKinematic.cmake)
+INCLUDE(PhysXCommon.cmake)
+INCLUDE(PhysXExtensions.cmake)
+INCLUDE(PhysXVehicle.cmake)
+INCLUDE(PhysXTask.cmake)
+INCLUDE(SceneQuery.cmake)
+INCLUDE(SimulationController.cmake)
+INCLUDE(PhysXPvdSDK.cmake)
+
+# Set folder PhysX SDK to all common SDK source projects
+SET_PROPERTY(TARGET PhysX PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET PhysXCharacterKinematic PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET PhysXCommon PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET PhysXExtensions PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET PhysXVehicle PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET LowLevel PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET LowLevelAABB PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET LowLevelDynamics PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET SceneQuery PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET SimulationController PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET PhysXPvdSDK PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET PhysXTask PROPERTY FOLDER "PhysX SDK")
+SET_PROPERTY(TARGET PhysXFoundation PROPERTY FOLDER "PhysX SDK")
+
+IF(NOT DEFINED PX_ENABLE_INSTALL)
+    INSTALL(TARGETS PhysXFoundation PhysX PhysXCharacterKinematic PhysXPvdSDK PhysXCommon PhysXExtensions PhysXVehicle
+        EXPORT PhysXSDK
+        ARCHIVE DESTINATION "${PX_ROOT_LIB_DIR}/$<CONFIG>"
+        LIBRARY DESTINATION "${PX_ROOT_LIB_DIR}/$<CONFIG>"
+        FRAMEWORK DESTINATION "${PX_ROOT_LIB_DIR}/$<CONFIG>")
+ENDIF()

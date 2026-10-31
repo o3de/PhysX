@@ -48,7 +48,7 @@ namespace physx { namespace profile {
 	{
 		static const char* getName()
 		{
-#if PX_LINUX || PX_OSX || PX_EMSCRIPTEN || PX_SWITCH
+#if PX_UNIX_FAMILY || PX_EMSCRIPTEN || PX_SWITCH
 			return __PRETTY_FUNCTION__;
 #else
 			return typeid(T).name();

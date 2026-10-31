@@ -194,6 +194,10 @@ endif()
 if(NOT DEFINED TARGET_BUILD_PLATFORM)
 if(WIN32)
     set(TARGET_BUILD_PLATFORM "windows" CACHE INTERNAL "Target build platform")
+elseif(ANDROID)
+    set(TARGET_BUILD_PLATFORM "android" CACHE INTERNAL "Target build platform")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(TARGET_BUILD_PLATFORM "ios" CACHE INTERNAL "Target build platform")
 elseif(APPLE)
     set(TARGET_BUILD_PLATFORM "mac" CACHE INTERNAL "Target build platform")
   elseif(UNIX)
@@ -202,14 +206,13 @@ elseif(APPLE)
 endif()
 
 if(NOT DEFINED PX_OUTPUT_ARCH)
-  if(TARGET_BUILD_PLATFORM STREQUAL "windows" OR TARGET_BUILD_PLATFORM STREQUAL "mac")
+  if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64"
+      OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$"
+      OR ANDROID_ABI STREQUAL "arm64-v8a"
+      OR CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64")
+    set(PX_OUTPUT_ARCH "arm" CACHE INTERNAL "Output architecture")
+  else()
     set(PX_OUTPUT_ARCH "x86" CACHE INTERNAL "Output architecture")
-  elseif(TARGET_BUILD_PLATFORM STREQUAL "linux")
-    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-      set(PX_OUTPUT_ARCH "arm" CACHE INTERNAL "Output architecture")
-    else()
-      set(PX_OUTPUT_ARCH "x86" CACHE INTERNAL "Output architecture")
-    endif()
   endif()
 endif()
 
@@ -486,6 +489,9 @@ foreach(lib IN ITEMS PhysX PhysXCommon PhysXFoundation PhysXExtensions PhysXPvdS
     message(STATUS "Linking physx_lib with ${lib}")
     target_link_libraries(physx_lib INTERFACE ${lib})
     list(APPEND PHYSX_LIBS ${lib})
+    if(PX_GENERATE_STATIC_LIBRARIES)
+      target_compile_definitions(${lib} INTERFACE PX_PHYSX_STATIC_LIB)
+    endif()
     
     # Add DISABLE_CUDA_PHYSX to each library's interface when GPU is disabled
     # This ensures consumers (both FetchContent and find_package) get the definition
@@ -594,9 +600,16 @@ endif()
 
 message(STATUS "PhysX CMake configuration complete")
 
+set(_PHYSX_INSTALL_RPATH "$ORIGIN")
+if(APPLE)
+  set(_PHYSX_INSTALL_RPATH "@loader_path")
+endif()
+
 # Only execute installation commands when appropriate
 if(PX_ENABLE_INSTALL)
   message(STATUS "PhysX installation enabled")
+
+  install(FILES "${PHYSX_ROOT_DIR}/LICENSE.md" DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/PhysX")
 
   # Install PhysX headers
   install(DIRECTORY ${PHYSX_ROOT_DIR}/include/
@@ -608,7 +621,7 @@ if(PX_ENABLE_INSTALL)
     if(TARGET ${_lib})
       get_target_property(_lib_type ${_lib} TYPE)
       if(_lib_type STREQUAL "SHARED_LIBRARY")
-        set_target_properties(${_lib} PROPERTIES INSTALL_RPATH "$ORIGIN")
+        set_target_properties(${_lib} PROPERTIES INSTALL_RPATH "${_PHYSX_INSTALL_RPATH}")
       endif()
     endif()
   endforeach()
@@ -619,6 +632,7 @@ if(PX_ENABLE_INSTALL)
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR}
       INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
   # Export the targets for find_package
@@ -672,11 +686,12 @@ else()
     # Install with proper RPATH settings so libraries can find each other
     set_target_properties(${SHARED_LIBS_TO_INSTALL}
         PROPERTIES
-        INSTALL_RPATH "$ORIGIN"
+        INSTALL_RPATH "${_PHYSX_INSTALL_RPATH}"
         BUILD_WITH_INSTALL_RPATH TRUE)
 
     install(TARGETS ${SHARED_LIBS_TO_INSTALL}
         LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
         # Note: for shared libraries on Windows, CMake also generates DLL import
         # libraries (.lib) and installs them via the ARCHIVE destination.

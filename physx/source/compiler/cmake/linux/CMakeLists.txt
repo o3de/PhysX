@@ -32,6 +32,7 @@ SET(CLANG_WARNINGS "-ferror-limit=0 -Wall -Wextra -Werror -Weverything\
     -Wno-missing-variable-declarations \
     -Wno-newline-eof \
     -Wno-non-virtual-dtor \
+    -Wno-nrvo \
     -Wno-old-style-cast \
     -Wno-padded \
     -Wno-reserved-id-macro \

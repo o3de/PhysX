@@ -354,14 +354,11 @@ TARGET_INCLUDE_DIRECTORIES(PhysX
 
 	PRIVATE ${PHYSX_SOURCE_DIR}/physxmetadata/core/include
 
-    PRIVATE ${PHYSX_SOURCE_DIR}/immediatemode/include
-
     PRIVATE ${PHYSX_SOURCE_DIR}/pvd/include
 
 	PRIVATE ${PHYSX_SOURCE_DIR}/gpucommon/include
 	PRIVATE ${PHYSX_SOURCE_DIR}/gpucommon/src/CUDA
 
-	PRIVATE ${PHYSX_SOURCE_DIR}/omnipvd
 	PRIVATE ${PHYSX_ROOT_DIR}/pvdruntime/include
 )
 
