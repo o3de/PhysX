@@ -336,10 +336,6 @@ def getCommonParams():
     outString = outString + ' -DCMAKE_PREFIX_PATH=\"' + os.environ['PM_PATHS'] + '\"'
     outString = outString + ' -DPHYSX_ROOT_DIR=\"' + \
         os.environ['PHYSX_ROOT_DIR'] + '\"'
-    outString = outString + ' -DPX_OUTPUT_LIB_DIR=\"' + \
-        os.environ['PHYSX_ROOT_DIR'] + '\"'
-    outString = outString + ' -DPX_OUTPUT_BIN_DIR=\"' + \
-        os.environ['PHYSX_ROOT_DIR'] + '\"'
     if os.environ.get('GENERATE_SOURCE_DISTRO') == '1':
         outString = outString + ' -DPX_GENERATE_SOURCE_DISTRO=1'
     return outString

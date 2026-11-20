@@ -6,51 +6,15 @@
 OPTION(NV_APPEND_CONFIG_NAME "Append config (DEBUG, CHECKED, PROFILE or '' for release) to outputted binaries." OFF)
 OPTION(NV_USE_STATIC_WINCRT "Use the statically linked windows CRT" OFF)
 OPTION(NV_USE_DEBUG_WINCRT "Use the debug version of the CRT" OFF)
-OPTION(NV_FORCE_64BIT_SUFFIX "Force a 64 bit suffix for platforms that don't register properly." OFF)
-OPTION(NV_FORCE_32BIT_SUFFIX "Force a 32 bit suffix for platforms that don't register properly." OFF)
 
 INCLUDE(SetOutputPaths)
 
 
-IF(NV_FORCE_32BIT_SUFFIX AND NV_FORCE_64BIT_SUFFIX)
-    MESSAGE(FATAL_ERROR "Cannot specify both NV_FORCE_64BIT_SUFFIX and NV_FORCE_32BIT_SUFFIX. Choose one.")
-ENDIF()
+MATH(EXPR LIBPATH_SUFFIX "${CMAKE_SIZEOF_VOID_P} * 8")
 
-IF(SUPPRESS_SUFFIX)
-    MESSAGE("Suppressing binary suffixes.")
-    SET(LIBPATH_SUFFIX "NONE")
-    # Set default exe suffix. Unset on platforms that don't need it. Include underscore since it's optional
-    SET(EXE_SUFFIX "")
-ELSEIF(NV_FORCE_32BIT_SUFFIX)
-    MESSAGE("Forcing binary suffixes to 32 bit.")
-    SET(LIBPATH_SUFFIX "32")
-    # Set default exe suffix. Unset on platforms that don't need it. Include underscore since it's optional
-    SET(EXE_SUFFIX "_32")
-ELSEIF(NV_FORCE_64BIT_SUFFIX)
-    MESSAGE("Forcing binary suffixes to 64 bit.")
-    SET(LIBPATH_SUFFIX "64")
-    # Set default exe suffix. Unset on platforms that don't need it. Include underscore since it's optional
-    SET(EXE_SUFFIX "_64")
-ELSE()
-    # New bitness suffix
-    IF(CMAKE_SIZEOF_VOID_P EQUAL 8)
-        SET(LIBPATH_SUFFIX "64")
-        # Set default exe suffix. Unset on platforms that don't need it. Include underscore since it's optional
-        SET(EXE_SUFFIX "_64")
-    ELSE()
-        SET(LIBPATH_SUFFIX "32")
-        # Set default exe suffix. Unset on platforms that don't need it. Include underscore since it's optional
-        SET(EXE_SUFFIX "_32")
-    ENDIF()
-ENDIF()
-
-IF (NOT DEFINED PX_OUTPUT_LIB_DIR)
-    MESSAGE(FATAL_ERROR "When using the GameWorks output structure you must specify PX_OUTPUT_LIB_DIR as the base")
-ENDIF()
-
-IF (NOT DEFINED PX_OUTPUT_BIN_DIR)
-    MESSAGE(FATAL_ERROR "When using the GameWorks output structure you must specify PX_OUTPUT_BIN_DIR as the base")
-ENDIF()
+SET(PX_OUTPUT_LIB_DIR "${CMAKE_BINARY_DIR}/lib" CACHE PATH "PhysX library output root")
+SET(PX_OUTPUT_BIN_DIR "${CMAKE_BINARY_DIR}/bin" CACHE PATH "PhysX executable output root")
+SET(PX_OUTPUT_DLL_DIR "${PX_OUTPUT_BIN_DIR}" CACHE PATH "PhysX shared library output root")
 
 # Set the WINCRT_DEBUG and WINCRT_NDEBUG variables for use in project compile settings
 # Really only relevant to windows
@@ -97,10 +61,6 @@ GetPlatformBinName(PLATFORM_BIN_NAME ${LIBPATH_SUFFIX})
 SET(PX_ROOT_LIB_DIR "bin/${PLATFORM_BIN_NAME}" CACHE INTERNAL "Relative root of the lib output directory")
 SET(PX_ROOT_EXE_DIR "bin/${PLATFORM_BIN_NAME}" CACHE INTERNAL "Relative root dir of the exe output directory")
 
-IF (NOT DEFINED PX_OUTPUT_ARCH)  # platforms with fixed arch like ps4 dont need to have arch defined
-    SET(EXE_SUFFIX "")
-ENDIF()
-
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG   "${PX_OUTPUT_LIB_DIR}/${PX_ROOT_LIB_DIR}/debug"   )
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_PROFILE "${PX_OUTPUT_LIB_DIR}/${PX_ROOT_LIB_DIR}/profile" )
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_CHECKED "${PX_OUTPUT_LIB_DIR}/${PX_ROOT_LIB_DIR}/checked" )
@@ -124,18 +84,15 @@ SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE  ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY_REL
 
 
 IF(NV_APPEND_CONFIG_NAME)
-	SET(CMAKE_DEBUG_POSTFIX   "DEBUG_${LIBPATH_SUFFIX}")
-	SET(CMAKE_PROFILE_POSTFIX "PROFILE_${LIBPATH_SUFFIX}")
-	SET(CMAKE_CHECKED_POSTFIX "CHECKED_${LIBPATH_SUFFIX}")
-	SET(CMAKE_RELEASE_POSTFIX "_${LIBPATH_SUFFIX}")
+	SET(CMAKE_DEBUG_POSTFIX   "DEBUG")
+	SET(CMAKE_PROFILE_POSTFIX "PROFILE")
+	SET(CMAKE_CHECKED_POSTFIX "CHECKED")
 ELSE()
-	IF (DEFINED PX_OUTPUT_ARCH)  # platforms with fixed arch like ps4 dont need to have arch defined, then dont add bitness
-		SET(CMAKE_DEBUG_POSTFIX "_${LIBPATH_SUFFIX}")
-		SET(CMAKE_PROFILE_POSTFIX "_${LIBPATH_SUFFIX}")
-		SET(CMAKE_CHECKED_POSTFIX "_${LIBPATH_SUFFIX}")
-		SET(CMAKE_RELEASE_POSTFIX "_${LIBPATH_SUFFIX}")
-	ENDIF()
+	SET(CMAKE_DEBUG_POSTFIX "")
+	SET(CMAKE_PROFILE_POSTFIX "")
+	SET(CMAKE_CHECKED_POSTFIX "")
 ENDIF()
+SET(CMAKE_RELEASE_POSTFIX "")
 
 # Can no longer just use LIBPATH_SUFFIX since it depends on build type
 IF(CMAKE_CL_64)

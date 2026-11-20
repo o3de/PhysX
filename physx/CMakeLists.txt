@@ -181,9 +181,6 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 if(_PHYSX_IS_TOP_LEVEL_FOR_PROJECT)
   set(PX_IS_TOP_LEVEL_PROJECT TRUE)
   set(PX_ENABLE_INSTALL TRUE)
-  set(PX_OUTPUT_LIB_DIR "${PHYSX_ROOT_DIR}/lib" CACHE PATH "")
-  set(PX_OUTPUT_BIN_DIR "${PHYSX_ROOT_DIR}/bin" CACHE PATH "")
-  set(PX_OUTPUT_DLL_DIR "${PHYSX_ROOT_DIR}/bin" CACHE PATH "")
 else()
   set(PX_IS_TOP_LEVEL_PROJECT FALSE)
   set(PX_ENABLE_INSTALL FALSE)
@@ -333,21 +330,6 @@ if(PX_GENERATE_GPU_PROJECTS)
     add_subdirectory(${PHYSX_ROOT_DIR}/source/compiler/cmakegpu ${CMAKE_CURRENT_BINARY_DIR}/sdk_gpu_source_bin)
   else()
     add_subdirectory(${PHYSX_ROOT_DIR}/source/compiler/cmakegpu ${CMAKE_CURRENT_BINARY_DIR}/sdk_gpu_source_bin EXCLUDE_FROM_ALL)
-  endif()
-
-  if(WIN32)
-    # Prevent the duplicate "_64" on windows platforms by clearing the auto-appended postfixes
-    if(TARGET PhysXGpu)
-      math(EXPR _PX_GPU_BITNESS "${CMAKE_SIZEOF_VOID_P} * 8")
-      set_target_properties(PhysXGpu PROPERTIES
-        OUTPUT_NAME "PhysXGpu_${_PX_GPU_BITNESS}"
-        DEBUG_POSTFIX   ""
-        RELEASE_POSTFIX ""
-        PROFILE_POSTFIX ""
-        CHECKED_POSTFIX ""
-      )
-    endif()
-
   endif()
 endif()
 

@@ -505,12 +505,6 @@ ovruntime_target_add_cuda_sources(OvruntimePhysX
 
 # PhysXGpu and (Windows-only) PhysXDevice64 are loaded at runtime. Keep
 # build-tree copies in the runtime output directory used by the owner binary.
-if(WIN32)
-    set(_PHYSXGPU_LIB_NAME "PhysXGpu_64.dll")
-else()
-    set(_PHYSXGPU_LIB_NAME "libPhysXGpu_64.so")
-endif()
-
 set(_GPU_BIN_DIR "bin")
 set(_PHYSX_BIN_DIR "bin")
 
@@ -522,13 +516,18 @@ if(OVRUNTIME_PHYSX_FROM_SOURCE)
         add_custom_command(TARGET OvruntimePhysX POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "$<TARGET_FILE:PhysXGpu>"
-                "$<TARGET_FILE_DIR:OvruntimePhysX>/${_PHYSXGPU_LIB_NAME}"
-            COMMENT "Copying ${_PHYSXGPU_LIB_NAME} next to the PhysX runtime owner"
+                "$<TARGET_FILE_DIR:OvruntimePhysX>"
+            COMMENT "Copying PhysXGpu next to the PhysX runtime owner"
         )
-        install(FILES "$<TARGET_FILE:PhysXGpu>" DESTINATION ${_GPU_BIN_DIR} RENAME "${_PHYSXGPU_LIB_NAME}")
-        install(FILES "$<TARGET_FILE:PhysXGpu>" DESTINATION ${_PHYSX_BIN_DIR} RENAME "${_PHYSXGPU_LIB_NAME}")
+        install(FILES "$<TARGET_FILE:PhysXGpu>" DESTINATION ${_GPU_BIN_DIR})
+        install(FILES "$<TARGET_FILE:PhysXGpu>" DESTINATION ${_PHYSX_BIN_DIR})
     endif()
 elseif(DEFINED PHYSX_SDK_DIR)
+    if(WIN32)
+        set(_PHYSXGPU_LIB_NAME "PhysXGpu_64.dll")
+    else()
+        set(_PHYSXGPU_LIB_NAME "libPhysXGpu_64.so")
+    endif()
     set(_PHYSXGPU_LIB_DIR "${PHYSX_SDK_DIR}/bin/${PHYSX_PLATFORM_BIN}")
     set(_PHYSXGPU_LIB "${_PHYSXGPU_LIB_DIR}/$<IF:$<CONFIG:Debug>,debug,checked>/${_PHYSXGPU_LIB_NAME}")
 

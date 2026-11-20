@@ -38,21 +38,13 @@ ADD_LIBRARY(PhysXGpu ${PHYSXGPU_LIBTYPE}
 	$<TARGET_OBJECTS:PhysXGpuDependencies>
 )
 
-# Match the output name expected by the runtime loader (PX_PHYSX_GPU_SHARED_LIB_NAME).
-# The PhysX runtime does dlopen("libPhysXGpu_64.so") / LoadLibrary("PhysXGpu_64.dll"),
-# so the built library must use the _64 suffix to be found at runtime.
-#
-# In the standalone build (via source/compiler/cmake/CMakeLists.txt), NvidiaBuildOptions.cmake
-# sets CMAKE_DEBUG_POSTFIX="_64" etc., so OUTPUT_NAME="PhysXGpu" + postfix="_64" produces the
-# correct name. We only override OUTPUT_NAME when postfixes are NOT set (FetchContent path).
-IF(NOT CMAKE_DEBUG_POSTFIX)
-	IF(CMAKE_SIZEOF_VOID_P EQUAL 8)
-		SET(_PX_GPU_BITNESS "64")
-	ELSE()
-		SET(_PX_GPU_BITNESS "32")
-	ENDIF()
-	SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES OUTPUT_NAME "PhysXGpu_${_PX_GPU_BITNESS}")
-ENDIF()
+# The runtime loader uses the same module name in every configuration.
+SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES
+	DEBUG_POSTFIX ""
+	CHECKED_POSTFIX ""
+	PROFILE_POSTFIX ""
+	RELEASE_POSTFIX ""
+)
 
 TARGET_INCLUDE_DIRECTORIES(PhysXGpu
 	PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
@@ -86,22 +78,6 @@ TARGET_INCLUDE_DIRECTORIES(PhysXGpu
 
 # Add CUDA manager include directory
 TARGET_INCLUDE_DIRECTORIES(PhysXGpu PRIVATE ${PHYSX_SOURCE_DIR}/physx/src/opensource/cudamanager/include)
-
-# For standalone builds (CMAKE_DEBUG_POSTFIX is set), keep the base name as "PhysXGpu"
-# and let the postfix system add "_64". For FetchContent builds (no postfix), the
-# OUTPUT_NAME was already set to "PhysXGpu_64" above.
-IF(CMAKE_DEBUG_POSTFIX)
-	SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES OUTPUT_NAME "PhysXGpu")
-ENDIF()
-
-IF(PHYSXGPU_LIBTYPE STREQUAL "STATIC")
-	SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES
-		ARCHIVE_OUTPUT_NAME_DEBUG "PhysXGpu_static"
-		ARCHIVE_OUTPUT_NAME_CHECKED "PhysXGpu_static"
-		ARCHIVE_OUTPUT_NAME_PROFILE "PhysXGpu_static"
-		ARCHIVE_OUTPUT_NAME_RELEASE "PhysXGpu_static"
-	)
-ENDIF()
 
 IF(PHYSXGPU_COMPILE_PDB_NAME_DEBUG)
 	SET_TARGET_PROPERTIES(PhysXGpu PROPERTIES

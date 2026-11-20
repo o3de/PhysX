@@ -187,6 +187,8 @@ cmake -DCMAKE_BUILD_TYPE=release ../physx
 
 ### Installing and using find_package
 
+Use separate build and install directories for static and shared SDKs. Both use the same library basenames. Start with fresh build directories when switching to these names so cached output paths and old binaries stay out of the new build.
+
 PhysX supports the standard CMake install + `find_package` workflow for production deployments:
 
 ```bash

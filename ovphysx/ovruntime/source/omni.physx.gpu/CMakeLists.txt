@@ -24,6 +24,11 @@ set_target_properties(OvruntimePhysXGpu PROPERTIES
     OUTPUT_NAME "OvruntimePhysXGpu"
 )
 
+if(OVRUNTIME_PHYSX_FROM_SOURCE AND TARGET PhysXGpu)
+    target_compile_definitions(OvruntimePhysXGpu PRIVATE
+        OVRUNTIME_PHYSX_GPU_BASENAME="$<TARGET_FILE_BASE_NAME:PhysXGpu>")
+endif()
+
 # RTTI and exceptions enabled, no PCH (matching premake: flags { "NoPCH" })
 if(NOT WIN32)
     target_compile_options(OvruntimePhysXGpu PRIVATE -fexceptions -frtti -fPIC)

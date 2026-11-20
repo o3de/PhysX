@@ -15,6 +15,10 @@
 #include <array>
 #include <string>
 
+#ifndef OVRUNTIME_PHYSX_GPU_BASENAME
+#define OVRUNTIME_PHYSX_GPU_BASENAME "PhysXGpu_64"
+#endif
+
 namespace omni
 {
 namespace physx
@@ -63,7 +67,7 @@ bool PhysXGpuLoader::load()
             return true;
         }
     }
-    CARB_LOG_ERROR("omni.physx.gpu: failed to load PhysXGpu_64 from '%s' or '%s'", directories[0].c_str(),
+    CARB_LOG_ERROR("omni.physx.gpu: failed to load %s from '%s' or '%s'", OVRUNTIME_PHYSX_GPU_BASENAME, directories[0].c_str(),
                    directories[1].c_str());
     return false;
 }
@@ -96,13 +100,13 @@ bool PhysXGpuLoader::loadFromDirectory(const char* directory, bool logErrors)
 #endif
 
     {
-        const std::string path = getBinaryLibraryPath(directory, "PhysXGpu_64");
+        const std::string path = getBinaryLibraryPath(directory, OVRUNTIME_PHYSX_GPU_BASENAME);
         mPhysxGpuHandle = carb::extras::loadLibrary(path.c_str(), carb::extras::fLibFlagMakeFullLibName);
         if (!mPhysxGpuHandle)
         {
             if (logErrors)
             {
-                CARB_LOG_ERROR("omni.physx.gpu: failed to load PhysXGpu_64 from '%s'", path.c_str());
+                CARB_LOG_ERROR("omni.physx.gpu: failed to load %s from '%s'", OVRUNTIME_PHYSX_GPU_BASENAME, path.c_str());
             }
 #if CARB_PLATFORM_WINDOWS
             carb::extras::unloadLibrary(mPhysxDeviceHandle);
