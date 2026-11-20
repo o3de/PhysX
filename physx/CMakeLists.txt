@@ -7,13 +7,12 @@ cmake_minimum_required(VERSION 3.21)
 # EARLY OPTIONS - Need to be declared before project() call
 # ===================================================================
 
-set(PHYSX_PRESET "" CACHE STRING "PhysX build preset (e.g., vc17win64, linux-gcc, vc17win64-cpu-only)")
+set(PHYSX_PRESET "" CACHE STRING "PhysX build preset (e.g., windows-vc17-x64 or linux-x64)")
 
 # Apply preset switches (PX_GENERATE_GPU_PROJECTS, etc.) BEFORE project() so that
 # cpu-only presets can disable CUDA without requiring a separate command-line flag.
-# Parameters (CMAKE_INSTALL_PREFIX) are applied in phase 2 after project().
+include("${CMAKE_CURRENT_LIST_DIR}/buildtools/cmake/PhysXPresets.cmake")
 if(PHYSX_PRESET)
-  include("${CMAKE_CURRENT_LIST_DIR}/buildtools/cmake/PhysXPresets.cmake")
   physx_apply_preset_switches(${PHYSX_PRESET})
 endif()
 
@@ -80,7 +79,7 @@ if(PX_GENERATE_GPU_PROJECTS)
       "PX_GENERATE_GPU_PROJECTS is ON but no CUDA compiler was found.\n"
       "Either install the CUDA toolkit, or disable GPU support:\n"
       "  -DPX_GENERATE_GPU_PROJECTS=OFF\n"
-      "  or use a cpu-only preset (e.g., linux-gcc-cpu-only, vc17win64-cpu-only)")
+      "  or use a CPU preset (e.g., linux-x64 or windows-vc17-x64)")
   endif()
 else()
   project(PhysX VERSION ${_PX_VERSION} LANGUAGES C CXX)
@@ -88,6 +87,7 @@ else()
 endif()
 
 # Installation helper functions
+physx_apply_install_prefix()
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
@@ -105,14 +105,11 @@ list(APPEND CMAKE_MODULE_PATH ${PHYSX_CMAKE_MODULES_PATH})
 include("${CMAKE_CURRENT_LIST_DIR}/buildtools/cmake/PhysXConfigurationTypes.cmake")
 
 # ===================================================================
-# PRESET PHASE 2 - Parameters that require project() to have been called
+# PRESET PHASE 2 - FetchContent overrides
 # ===================================================================
 
-# Phase 1 (switches) was applied before project() so PX_GENERATE_GPU_PROJECTS
-# could influence CUDA language selection. Phase 2 applies CMAKE_INSTALL_PREFIX
-# (needs CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT) and FetchContent overrides.
 if(PHYSX_PRESET)
-  physx_apply_preset_params()
+  physx_override_fetchcontent_incompatible_options()
 endif()
 
 # ===================================================================
@@ -205,17 +202,6 @@ elseif(APPLE)
   endif()
 endif()
 
-if(NOT DEFINED PX_OUTPUT_ARCH)
-  if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64"
-      OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$"
-      OR ANDROID_ABI STREQUAL "arm64-v8a"
-      OR CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64")
-    set(PX_OUTPUT_ARCH "arm" CACHE INTERNAL "Output architecture")
-  else()
-    set(PX_OUTPUT_ARCH "x86" CACHE INTERNAL "Output architecture")
-  endif()
-endif()
-
 # Allow defining the compiler and generator from the command-line (mimicking preset xml)
 if(NOT DEFINED COMPILER)
   set(COMPILER "" CACHE STRING "Preset compiler")
@@ -225,7 +211,6 @@ if(NOT DEFINED GENERATOR)
 endif()
 
 message(STATUS "Target platform: ${TARGET_BUILD_PLATFORM}")
-message(STATUS "Output architecture: ${PX_OUTPUT_ARCH}")
 message(STATUS "Compiler: ${COMPILER}")
 message(STATUS "Generator: ${GENERATOR}")
 
@@ -287,12 +272,6 @@ if(PX_GENERATE_GPU_PROJECTS)
   endif()
   find_package(CUDAToolkit REQUIRED)
 endif()
-
-# Platform/arch already set earlier via if(NOT DEFINED ...) guards
-message(STATUS "Final configuration - Platform: ${TARGET_BUILD_PLATFORM}, Arch: ${PX_OUTPUT_ARCH}")
-
-# Output directories are set in the if(_PHYSX_TOP_LEVEL) / else() block above
-
 
 # Dependencies and FetchContent integration (as before)
 include(FetchContent)

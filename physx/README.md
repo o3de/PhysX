@@ -28,7 +28,7 @@ Note that the PhysX distribution downloads binary content, such as the PhysX GPU
 
 ### Emscripten
 
-Activate the Emscripten SDK and use the `emscripten-wasm32` or `emscripten-wasm64` preset for the static CPU SDK. When adding PhysX to an existing CMake project, select the same Wasm architecture for C and C++ before the top-level `project()`. For wasm64, pass `-m64` in both `CMAKE_C_FLAGS` and `CMAKE_CXX_FLAGS`.
+Activate the Emscripten SDK and use `emscripten-w32` for wasm32 or `emscripten-w64` for wasm64. When adding PhysX to an existing CMake project, select the same Wasm architecture for C and C++ before the top-level `project()`. For wasm64, pass `-m64` in both `CMAKE_C_FLAGS` and `CMAKE_CXX_FLAGS`.
 
 Browser applications using PhysX workers need a cross-origin-isolated page and a prestarted Emscripten pthread pool. Set `-sPTHREAD_POOL_SIZE=<number>` at the application link step to cover all concurrent pthreads, including the application's own threads. Run blocking simulation calls off the browser main thread where possible. The CMake SDK targets enable `-sPTHREAD_POOL_SIZE_STRICT=2` so an exhausted pool fails immediately. Pass that flag explicitly when linking the archives by hand. See the [Emscripten pthread guide](https://emscripten.org/docs/porting/pthreads.html).
 

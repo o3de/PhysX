@@ -82,7 +82,7 @@ SET(GCC_WARNINGS "-Wall -Werror \
 	-Wno-use-after-free \
 ")
 
-IF(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+IF(PHYSX_TARGET_ARCH STREQUAL "a64")
 	# gw: these optimizations are disabled for now. fp-contract causes floating point inaccuracy and deviation in behavior,
 	# tree-vrp and delete-null-pointer-checks cause known bugs on some versions of gcc
 	IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")

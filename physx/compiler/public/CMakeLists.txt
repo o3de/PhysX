@@ -46,6 +46,9 @@ IF(NOT EXISTS ${PHYSX_ROOT_DIR})
 	MESSAGE(FATAL_ERROR "PHYSX_ROOT_DIR variable was invalid.")
 ENDIF()
 
+INCLUDE("${PHYSX_ROOT_DIR}/buildtools/cmake/PhysXPresets.cmake")
+physx_apply_install_prefix()
+
 SET(PUBLIC_RELEASE 1)
 
 # Enable folder properties

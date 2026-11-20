@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<preset name="mac64" comment="O3DE mac64 CPU SDK">
-  <platform targetPlatform="mac64" compiler="xcode" />
+<preset name="mac-a64">
+  <platform targetPlatform="mac" compiler="xcode" />
   <CMakeSwitches>
     <cmakeSwitch name="PX_BUILDSNIPPETS" value="False" />
     <cmakeSwitch name="PX_BUILDPVDRUNTIME" value="False" />
@@ -9,10 +9,8 @@
   </CMakeSwitches>
   <CMakeParams>
     <cmakeParam name="TARGET_BUILD_PLATFORM" value="mac" />
-    <cmakeParam name="PX_OUTPUT_ARCH" value="x86" />
-    <cmakeParam name="CMAKE_OSX_ARCHITECTURES" value="x86_64" />
+    <cmakeParam name="CMAKE_OSX_ARCHITECTURES" value="arm64" />
     <cmakeParam name="CMAKE_OSX_SYSROOT" value="macosx" />
     <cmakeParam name="CMAKE_OSX_DEPLOYMENT_TARGET" value="11.0" />
-    <cmakeParam name="CMAKE_INSTALL_PREFIX" value="install/mac64/PhysX" />
   </CMakeParams>
 </preset>

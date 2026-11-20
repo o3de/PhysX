@@ -6,15 +6,22 @@ SETLOCAL EnableDelayedExpansion
 
 :: Check if at least one argument is provided (preset)
 if "%~1"=="" (
-    echo You must specify a preset: e.g. vc17win64...
+    echo Specify a Windows preset, such as windows-vc17-x64.
     exit /B 1
 )
 
 :: Set the preset based on the argument
-set "PRESET=%1"
+set "PRESET=%~1"
 
-:: Extract the Visual Studio version from the preset
-set "VS_PREFIX=%PRESET:~0,4%"  :: Get the first 4 characters (vc15, vc16, vc17)
+:: Extract the toolset and target from windows-vcNN-ARCH.
+set "VS_PREFIX=%PRESET:~0,4%"
+set "VS_ARCH=x86_amd64"
+if "%PRESET:~0,8%" == "windows-" (
+    for /f "tokens=2,3 delims=-" %%a in ("%PRESET:.user=%") do (
+        set "VS_PREFIX=%%a"
+        if "%%b" == "a64" set "VS_ARCH=amd64_arm64"
+    )
+)
 
 :: Determine the correct Visual Studio version based on the preset prefix
 if "%VS_PREFIX%" == "vc15" (
@@ -23,6 +30,8 @@ if "%VS_PREFIX%" == "vc15" (
     set "VS_VERSION=[16.0,17.0)"
 ) else if "%VS_PREFIX%" == "vc17" (
     set "VS_VERSION=[17.0,18.0)"
+) else if "%VS_PREFIX%" == "vc18" (
+    set "VS_VERSION=[18.0,19.0)"
 ) else (
     echo Unsupported Visual Studio version in preset: %PRESET%
     exit /B 1
@@ -69,7 +78,7 @@ if not defined VSINSTALLPATH (
 )
 
 :: Set COMNTOOLS to point to the correct path
-set "COMNTOOLS=!VSINSTALLPATH!\VC\Auxiliary\Build\vcvarsx86_amd64.bat"
+set "COMNTOOLS=!VSINSTALLPATH!\VC\Auxiliary\Build\vcvars!VS_ARCH!.bat"
 echo COMNTOOLS: "!COMNTOOLS!"
 call "!COMNTOOLS!"
 if errorlevel 1 (
@@ -121,8 +130,9 @@ if "%PRESET_LENGTH%" == "%SUFFIX%" (
     :: Build INSTALL.vcxproj when the preset ends with -carbonite
     msbuild /property:configuration=%1 "%ROOT_PATH%\%PRESET%\INSTALL.vcxproj" /maxcpucount /t:Rebuild /v:m
 ) else (
-    :: Build PhysXSDK.sln when the preset does not end with -carbonite
-    msbuild /property:configuration=%1 "%ROOT_PATH%\%PRESET%\PhysXSDK.sln" /maxcpucount /t:Rebuild /v:m
+    set "SOLUTION=%ROOT_PATH%\%PRESET%\PhysXSDK.sln"
+    if exist "%ROOT_PATH%\%PRESET%\PhysXSDK.slnx" set "SOLUTION=%ROOT_PATH%\%PRESET%\PhysXSDK.slnx"
+    msbuild /property:configuration=%1 "!SOLUTION!" /maxcpucount /t:Rebuild /v:m
 )
 
 if errorlevel 1 (

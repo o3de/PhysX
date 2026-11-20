@@ -55,6 +55,12 @@ ENDIF()
 
 INCLUDE(GetCompilerAndPlatform)
 
+GetTargetArchitecture(PHYSX_TARGET_ARCH)
+IF(PHYSX_PRESET MATCHES "-(x64|a64|w32|w64)(\\.user)?$" AND NOT CMAKE_MATCH_1 STREQUAL PHYSX_TARGET_ARCH)
+    MESSAGE(FATAL_ERROR
+        "Preset ${PHYSX_PRESET} requires ${CMAKE_MATCH_1}, but the active toolchain targets ${PHYSX_TARGET_ARCH}. Select the correct target before project().")
+ENDIF()
+
 GetPlatformBinName(PLATFORM_BIN_NAME ${LIBPATH_SUFFIX})
 
 

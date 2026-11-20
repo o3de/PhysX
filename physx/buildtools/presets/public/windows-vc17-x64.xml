@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<preset name="windows-vc17-x64">
+  <platform targetPlatform="windows" compiler="vc17" />
+  <CMakeSwitches>
+    <cmakeSwitch name="PX_BUILDSNIPPETS" value="True" />
+    <cmakeSwitch name="PX_BUILDPVDRUNTIME" value="True" />
+    <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="False" />
+    <cmakeSwitch name="PX_CMAKE_SUPPRESS_REGENERATION" value="True" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="False" />
+    <cmakeSwitch name="NV_USE_STATIC_WINCRT" value="False" />
+    <cmakeSwitch name="NV_USE_DEBUG_WINCRT" value="True" />
+    <cmakeSwitch name="PX_FLOAT_POINT_PRECISE_MATH" value="False" />
+  </CMakeSwitches>
+</preset>
