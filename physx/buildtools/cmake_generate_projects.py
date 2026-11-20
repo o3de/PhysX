@@ -30,11 +30,16 @@ def filterPreset(presetPath):
         # If not a file path, assume it's already a preset name
         presetName = presetPath
     
-    # Platform-specific filtering
-    winPresetFilter = ['win','switch','crosscompile']
+    platform = presetName.split('-', 1)[0]
+    if platform in ('mac', 'ios'):
+        return sys.platform == 'darwin'
+    if presetName.startswith(('linux-x64', 'linux-a64')):
+        return sys.platform.startswith('linux')
+
+    # Keep filtering older names used by custom presets.
+    winPresetFilter = ['win','switch','crosscompile','android','emscripten']
     if sys.platform == 'win32':
-        # On Windows, include presets that contain win, switch, or crosscompile 
-        # (but not windows-crosscompile)
+        # windows-crosscompile targets Windows from a non-Windows host.
         if any((presetName.find(elem) != -1 and 'windows-crosscompile' not in presetName) for elem in winPresetFilter):
             return True
     else:
@@ -82,15 +87,14 @@ def noPresetProvided(physx_root_dir):
         if filterPreset(preset):
             try:
                 presetXml = xml.etree.ElementTree.parse(preset).getroot()
-                if preset.find('user') == -1:
-                    print('(' + str(counter) + ') ' + presetXml.get('name') +
-                        ' <--- ' + presetXml.get('comment'))
-                    presetList.append(presetXml.get('name'))
-                else:
-                    print('(' + str(counter) + ') ' + presetXml.get('name') +
-                        '.user <--- ' + presetXml.get('comment'))
-                    presetList.append(presetXml.get('name') + '.user')
-                counter = counter + 1
+                name = presetXml.attrib['name']
+                if preset.endswith('.user.xml'):
+                    name += '.user'
+                comment = presetXml.get('comment')
+                label = f'{name} <--- {comment}' if comment else name
+                print(f'({counter}) {label}')
+                presetList.append(name)
+                counter += 1
             except Exception as e:
                 print(f"Warning: Could not parse preset file {preset}: {e}")
                 continue
@@ -110,6 +114,7 @@ def noPresetProvided(physx_root_dir):
 class CMakePreset:
     presetName = ''
     targetPlatform = ''
+    arm64 = False
     compiler = ''
     generator = ''
     cmakeSwitches = []
@@ -131,7 +136,21 @@ class CMakePreset:
         presetNode = xml.etree.ElementTree.parse(xmlPath).getroot()
         self.presetName = presetNode.attrib['name']
         for platform in presetNode.findall('platform'):
-            self.targetPlatform = platform.attrib['targetPlatform']
+            target_platform = platform.attrib['targetPlatform']
+            # Existing custom presets can still use the older platform keys.
+            self.targetPlatform = {
+                'win64': 'windows',
+                'winArm64': 'windows',
+                'linuxAarch64': 'linux',
+                'mac64': 'mac',
+                'macArm64': 'mac',
+                'ios64': 'ios',
+                'switch64': 'switch',
+            }.get(target_platform, target_platform)
+            self.arm64 = (
+                target_platform in ('winArm64', 'linuxAarch64')
+                or self.presetName.endswith(('-a64', '-a64.user'))
+            )
             self.compiler = platform.attrib['compiler']
             self.generator = platform.get('generator')
             print('Target platform: ' + self.targetPlatform +
@@ -145,11 +164,12 @@ class CMakePreset:
                 cmakeSwitch.attrib['value'].upper()
             self.cmakeSwitches.append(cmSwitch)
 
-        for cmakeParam in presetNode.find('CMakeParams'):
-            if cmakeParam.attrib['name'] == 'CMAKE_INSTALL_PREFIX' or cmakeParam.attrib['name'] == 'PX_OUTPUT_LIB_DIR' or cmakeParam.attrib['name'] == 'PX_OUTPUT_EXE_DIR' or cmakeParam.attrib['name'] == 'PX_OUTPUT_DLL_DIR':
-                cmParam = '-D' + cmakeParam.attrib['name'] + '=\"' + \
-                    os.environ['PHYSX_ROOT_DIR'] + '/' + \
-                    cmakeParam.attrib['value'] + '\"'
+        for cmakeParam in presetNode.findall('CMakeParams/cmakeParam'):
+            if cmakeParam.attrib['name'] == 'CMAKE_TOOLCHAIN_FILE' or cmakeParam.attrib['name'] == 'CMAKE_INSTALL_PREFIX' or cmakeParam.attrib['name'] == 'PX_OUTPUT_LIB_DIR' or cmakeParam.attrib['name'] == 'PX_OUTPUT_EXE_DIR' or cmakeParam.attrib['name'] == 'PX_OUTPUT_DLL_DIR':
+                value = cmakeParam.attrib['value']
+                if not os.path.isabs(value):
+                    value = os.path.join(os.environ['PHYSX_ROOT_DIR'], value)
+                cmParam = '-D' + cmakeParam.attrib['name'] + '=\"' + value.replace('\\', '/') + '\"'
             else:
                 cmParam = '-D' + \
                     cmakeParam.attrib['name'] + '=' + \
@@ -158,9 +178,7 @@ class CMakePreset:
     pass
 
     def isMultiConfigPlatform(self):
-        if self.targetPlatform == 'linux':
-            return False
-        elif self.targetPlatform == 'linuxAarch64':
+        if self.targetPlatform in ('linux', 'android', 'emscripten'):
             return False
         elif self.compiler == 'x86_64-w64-mingw32-g++':
             return False
@@ -206,26 +224,26 @@ class CMakePreset:
         # Second pass: Add all switches to output
         for cmakeSwitch in self.cmakeSwitches:
             outString = outString + ' ' + cmakeSwitch
-            
+
         # Only add CUDA paths if GPU is enabled
         if gpuEnabled:
             if os.environ.get('PM_CUDA_PATH') is not None:
                 cuda_path = os.environ['PM_CUDA_PATH']
-                outString = outString + ' -DCUDAToolkit_ROOT_DIR=' + cuda_path
+                outString = outString + ' -DCUDAToolkit_ROOT_DIR="' + cuda_path + '"'
 
                 nvcc_name = 'nvcc.exe' if sys.platform == 'win32' else 'nvcc'
                 nvcc_path = cuda_path + '/bin/' + nvcc_name
                 if os.path.isfile(nvcc_path):
-                    outString = outString + ' -DCMAKE_CUDA_COMPILER=' + nvcc_path
+                    outString = outString + ' -DCMAKE_CUDA_COMPILER="' + nvcc_path + '"'
 
-                if self.compiler in ['vc15', 'vc16', 'vc17'] and self.generator != 'ninja':
-                    outString = outString + ' -T cuda=' + cuda_path
+                if self.compiler in ('vc15', 'vc16', 'vc17', 'vc18') and self.generator != 'ninja':
+                    outString = outString + ' -T"cuda=' + cuda_path + '"'
                 # TODO: Need to do the same for gcc (aarch64) when we package it with Packman
                 elif self.compiler == 'clang':
                     if os.environ.get('PM_clang_PATH') is not None:
                         outString = outString + ' -DCMAKE_CUDA_HOST_COMPILER=' + \
                             os.environ['PM_clang_PATH'] + '/bin/clang++'
-                        
+
         return outString
 
     def getCMakeParams(self):
@@ -237,11 +255,16 @@ class CMakePreset:
     def getPlatformCMakeParams(self):
         cmake_modules_root = os.environ['PHYSX_ROOT_DIR'] + '/source/compiler/cmake/modules'
         outString = ' '
+        if self.targetPlatform in ('android', 'emscripten') or self.compiler == 'clang-linux-cross':
+            return outString + '-G "Ninja"'
+        if self.targetPlatform in ('mac', 'ios'):
+            return outString + '-G Xcode'
 
         vs_versions = {
             'vc15': '\"Visual Studio 15 2017\"',
             'vc16': '\"Visual Studio 16 2019\"',
-            'vc17': '\"Visual Studio 17 2022\"'
+            'vc17': '\"Visual Studio 17 2022\"',
+            'vc18': '\"Visual Studio 18 2026\"'
         }
 
         # Visual studio
@@ -251,27 +274,27 @@ class CMakePreset:
         # Windows crosscompile
         elif self.compiler == 'x86_64-w64-mingw32-g++':
             outString = outString + '-G \"Ninja\"'
-        # mac
-        elif self.compiler == 'xcode':
-            outString = outString + '-G Xcode'
         # Linux
-        elif self.targetPlatform in ['linux', 'linuxAarch64']:
-            if self.generator is not None and self.generator == 'ninja':
+        elif self.targetPlatform == 'linux':
+            if self.generator == 'ninja':
                 outString = outString + '-G \"Ninja\"'
-                outString = outString + ' -DCMAKE_MAKE_PROGRAM=' + os.environ['PM_ninja_PATH'] + '/ninja'
+                ninja_path = os.environ.get('PM_ninja_PATH')
+                if ninja_path:
+                    outString += ' -DCMAKE_MAKE_PROGRAM="' + ninja_path + '/ninja"'
             else:
                 outString = outString + '-G \"Unix Makefiles\"'
 
-        if self.targetPlatform == 'win64':
+        if self.targetPlatform == 'windows':
             if self.generator != 'ninja':
-                outString = outString + ' -Ax64'
+                outString += ' -AARM64' if self.arm64 else ' -Ax64'
             outString = outString + ' -DTARGET_BUILD_PLATFORM=windows'
-            outString = outString + ' -DPX_OUTPUT_ARCH=x86'
+            if self.arm64:
+                outString += ' -DCMAKE_SYSTEM_NAME=Windows'
             if self.compiler == 'x86_64-w64-mingw32-g++':
                 outString = outString + ' -DCMAKE_TOOLCHAIN_FILE=' + \
                     cmake_modules_root + '/linux/WindowsCrossToolchain.linux-unknown-x86_64.cmake'
             return outString
-        elif self.targetPlatform == 'switch64':
+        elif self.targetPlatform == 'switch':
             outString = outString + ' -DTARGET_BUILD_PLATFORM=switch'
             outString = outString + ' -DCMAKE_TOOLCHAIN_FILE=' + \
                 cmake_modules_root + '/switch/NX64Toolchain.txt'
@@ -279,29 +302,11 @@ class CMakePreset:
             return outString
         elif self.targetPlatform == 'linux':
             outString = outString + ' -DTARGET_BUILD_PLATFORM=linux'
-            outString = outString + ' -DPX_OUTPUT_ARCH=x86'
             if self.compiler == 'clang-crosscompile':
-                outString = outString + ' -DCMAKE_TOOLCHAIN_FILE=' + \
-                    cmake_modules_root + '/linux/LinuxCrossToolchain.x86_64-unknown-linux-gnu.cmake'
+                toolchain = 'aarch64-unknown-linux-gnueabihf' if self.arm64 else 'x86_64-unknown-linux-gnu'
+                outString += ' -DCMAKE_TOOLCHAIN_FILE=' + cmake_modules_root + '/linux/LinuxCrossToolchain.' + toolchain + '.cmake'
                 outString = outString + ' -DCMAKE_MAKE_PROGRAM=' + os.environ.get('PM_MinGW_PATH') + '/bin/mingw32-make.exe'
-            elif self.compiler == 'clang':
-                if os.environ.get('PM_clang_PATH') is not None:
-                    outString = outString + ' -DCMAKE_C_COMPILER=' + \
-                        os.environ['PM_clang_PATH'] + '/bin/clang'
-                    outString = outString + ' -DCMAKE_CXX_COMPILER=' + \
-                        os.environ['PM_clang_PATH'] + '/bin/clang++'
-                else:
-                    outString = outString + ' -DCMAKE_C_COMPILER=clang'
-                    outString = outString + ' -DCMAKE_CXX_COMPILER=clang++'
-            return outString
-        elif self.targetPlatform == 'linuxAarch64':
-            outString = outString + ' -DTARGET_BUILD_PLATFORM=linux'
-            outString = outString + ' -DPX_OUTPUT_ARCH=arm'
-            if self.compiler == 'clang-crosscompile':
-                outString = outString + ' -DCMAKE_TOOLCHAIN_FILE=' + \
-                    cmake_modules_root + '/linux/LinuxCrossToolchain.aarch64-unknown-linux-gnueabihf.cmake'
-                outString = outString + ' -DCMAKE_MAKE_PROGRAM=' + os.environ.get('PM_MinGW_PATH') + '/bin/mingw32-make.exe'
-            elif self.compiler == 'gcc':
+            elif self.compiler == 'gcc' and self.arm64:
                 # TODO: To change so it uses Packman's compiler. Then add it as
                 # host compiler for CUDA above.
                 outString = outString + ' -DCMAKE_TOOLCHAIN_FILE=\"' + \
@@ -315,11 +320,6 @@ class CMakePreset:
                 else:
                     outString = outString + ' -DCMAKE_C_COMPILER=clang'
                     outString = outString + ' -DCMAKE_CXX_COMPILER=clang++'
-            
-            return outString
-        elif self.targetPlatform == 'mac64':
-            outString = outString + ' -DTARGET_BUILD_PLATFORM=mac'
-            outString = outString + ' -DPX_OUTPUT_ARCH=x86'
             return outString
         return ''
 
@@ -328,10 +328,6 @@ def getCommonParams():
     outString = '--no-warn-unused-cli'
     outString = outString + ' -DCMAKE_PREFIX_PATH=\"' + os.environ['PM_PATHS'] + '\"'
     outString = outString + ' -DPHYSX_ROOT_DIR=\"' + \
-        os.environ['PHYSX_ROOT_DIR'] + '\"'
-    outString = outString + ' -DPX_OUTPUT_LIB_DIR=\"' + \
-        os.environ['PHYSX_ROOT_DIR'] + '\"'
-    outString = outString + ' -DPX_OUTPUT_BIN_DIR=\"' + \
         os.environ['PHYSX_ROOT_DIR'] + '\"'
     if os.environ.get('GENERATE_SOURCE_DISTRO') == '1':
         outString = outString + ' -DPX_GENERATE_SOURCE_DISTRO=1'
@@ -360,6 +356,7 @@ def presetProvided(pName, physx_root_dir):
     # gather cmake parameters
     cmakeParams = parsedPreset.getPlatformCMakeParams()
     cmakeParams = cmakeParams + ' ' + getCommonParams()
+    cmakeParams += ' -DPHYSX_PRESET="' + parsedPreset.presetName + '"'
     cmakeParams = cmakeParams + ' ' + parsedPreset.getCMakeSwitches()
     cmakeParams = cmakeParams + ' ' + parsedPreset.getCMakeParams()
     # print(cmakeParams)

@@ -4,7 +4,7 @@ Integrate PhysX into CMake projects via `FetchContent` with zero manual setup.
 
 ## Requirements
 
-- **CMake** 3.21 or later
+- **CMake** 3.21 or later. The Visual Studio 2026 generator requires CMake 4.2 or later.
 - **C++14**-capable compiler (GCC 7+, Clang 5+, MSVC 2017+)
 - **GPU builds (optional):** CUDA toolkit and a compatible NVIDIA GPU
 
@@ -17,16 +17,14 @@ project(MyPhysXApp LANGUAGES CXX)
 
 include(FetchContent)
 
-# Configure PhysX using a preset (easy!)
-set(PHYSX_PRESET "vc17win64" CACHE STRING "" FORCE)      # Windows
-# set(PHYSX_PRESET "linux-gcc" CACHE STRING "" FORCE)    # Linux  
-# set(PHYSX_PRESET "vc17win64-cpu-only" CACHE STRING "" FORCE)  # No GPU
+set(PHYSX_PRESET "windows-vc17-x64")    # Visual Studio 2022 x64
+# set(PHYSX_PRESET "linux-x64")        # Linux x64
 
 # Download and configure PhysX (pin GIT_TAG to a release tag or commit you need)
 FetchContent_Declare(
     physx_lib
-    GIT_REPOSITORY https://github.com/NVIDIA-Omniverse/PhysX.git
-    GIT_TAG        origin/main  # Or pin to a specific release tag/commit
+    GIT_REPOSITORY https://github.com/o3de/PhysX.git
+    GIT_TAG        <commit>     # Pin an O3DE revision containing these presets
     SOURCE_SUBDIR  physx
 )
 
@@ -48,8 +46,8 @@ set(PX_BUILDSNIPPETS OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
     physx_lib
-    GIT_REPOSITORY https://github.com/NVIDIA-Omniverse/PhysX.git
-    GIT_TAG        origin/main  # Or pin to a specific release tag/commit
+    GIT_REPOSITORY https://github.com/o3de/PhysX.git
+    GIT_TAG        <commit>     # Pin an O3DE revision containing these presets
     SOURCE_SUBDIR  physx
 )
 FetchContent_MakeAvailable(physx_lib)
@@ -57,46 +55,20 @@ FetchContent_MakeAvailable(physx_lib)
 
 ### Available Presets
 
-PhysX provides pre-configured build presets for common platforms and use cases:
+| Platform | Presets |
+|----------|---------|
+| Windows | `windows-vc17-x64`, `windows-vc17-a64`, `windows-vc18-x64`, `windows-vc18-a64` |
+| Linux | `linux-x64`, `linux-a64` |
+| macOS | `mac-x64`, `mac-a64` |
+| iOS | `ios-a64`, `ios-simulator-a64`, `ios-simulator-x64` |
+| Android | `android-a64`, `android-x64` |
+| Emscripten | `emscripten-w32`, `emscripten-w64` |
 
-#### Windows (Visual Studio)
+The presets default to CPU builds. On CUDA-capable targets, enable GPU support with `-DPX_GENERATE_GPU_PROJECTS=ON`. When using the legacy generator, a `.user.xml` preset can enable the same option.
 
-| Preset | Compiler | GPU | Libraries | Use Case |
-|--------|----------|-----|-----------|----------|
-| `vc17win64` | VS2022 | ✅ Enabled | Shared | **Most common Windows setup** |
-| `vc17win64-cpu-only` | VS2022 | ❌ CPU only | Shared | **CPU-only Windows builds** |
-| `vc16win64` | VS2019 | ✅ Enabled | Shared | VS2019 compatibility |
-| `vc16win64-cpu-only` | VS2019 | ❌ CPU only | Shared | VS2019 CPU-only |
+Linux uses CMake's compiler selection. Set `CC` and `CXX` before configuring a new build directory to choose GCC or Clang. The legacy generator uses Ninja. To build Linux ARM64 from an x64 host, pass `-DCMAKE_TOOLCHAIN_FILE=<path>` to direct CMake or set the `CMAKE_TOOLCHAIN_FILE` environment variable before running `generate_projects.sh linux-a64`. The repository provides `physx/buildtools/cmake/linux-aarch64-cross.cmake` for a Linux host with the GNU ARM64 cross-toolchain installed.
 
-#### Linux (GCC/Clang)
-
-| Preset | Compiler | GPU | Libraries | Use Case |
-|--------|----------|-----|-----------|----------|
-| `linux-gcc` | GCC | ✅ Enabled | Static | **Most common Linux setup** |
-| `linux-gcc-cpu-only` | GCC | ❌ CPU only | Static | **CPU-only Linux builds** |
-| `linux-clang` | Clang | ✅ Enabled | Static | Clang preference |
-| `linux-clang-cpu-only` | Clang | ❌ CPU only | Static | Clang CPU-only |
-
-#### Linux ARM64
-
-| Preset | Compiler | GPU | Libraries | Use Case |
-|--------|----------|-----|-----------|----------|
-| `linux-aarch64-gcc` | GCC | ✅ Enabled | Static | **ARM64 Linux with GPU** |
-| `linux-aarch64-gcc-cpu-only` | GCC | ❌ CPU only | Static | ARM64 Linux CPU-only |
-| `linux-aarch64-clang` | Clang | ✅ Enabled | Static | ARM64 Clang with GPU |
-| `linux-aarch64-clang-cpu-only` | Clang | ❌ CPU only | Static | ARM64 Clang CPU-only |
-
-#### Choosing a Preset
-```cmake
-# Platform-specific recommendations:
-if(WIN32)
-    set(PHYSX_PRESET "vc17win64")              # Windows + GPU
-    # set(PHYSX_PRESET "vc17win64-cpu-only")   # Windows, no GPU needed
-elseif(UNIX AND NOT APPLE)
-    set(PHYSX_PRESET "linux-gcc")              # Linux + GPU
-    # set(PHYSX_PRESET "linux-gcc-cpu-only")   # Linux, no GPU needed
-endif()
-```
+With direct CMake, select the generator and architecture before configuring. For example, pass `-G "Visual Studio 17 2022" -A ARM64` with `windows-vc17-a64`, or `-G Xcode` with an Apple preset.
 
 ### Manual Customization Options
 ```cmake
@@ -124,8 +96,8 @@ For reusable configurations, create a preset XML file in `physx/buildtools/prese
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
-<preset name="my-project" comment="Custom configuration for my application">
-  <platform targetPlatform="win64" compiler="vc17" />
+<preset name="my-project-x64">
+  <platform targetPlatform="windows" compiler="vc17" />
   <CMakeSwitches>
     <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="True" />
     <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="False" />
@@ -135,16 +107,16 @@ For reusable configurations, create a preset XML file in `physx/buildtools/prese
 </preset>
 ```
 
-Then reference it by filename (without `.xml`):
+The Windows project generator uses the `-x64` or `-a64` preset suffix to select the Visual Studio architecture. Reference the preset by filename without `.xml`:
 ```cmake
-set(PHYSX_PRESET "my-project.user" CACHE STRING "" FORCE)
+set(PHYSX_PRESET "my-project-x64.user" CACHE STRING "" FORCE)
 ```
 
 #### Command-Line Configuration
 
 Pass options directly without modifying CMakeLists.txt:
 ```bash
-cmake -B build -DPHYSX_PRESET=vc17win64-cpu-only                    # Use a preset
+cmake -B build -DPHYSX_PRESET=windows-vc17-x64                    # Use a preset
 cmake -B build -DPX_GENERATE_GPU_PROJECTS=OFF -DPX_GENERATE_STATIC_LIBRARIES=ON  # Manual flags
 cmake -B build -DPHYSX_PRESET= -DPX_GENERATE_GPU_PROJECTS=OFF       # Bypass preset
 ```
@@ -186,6 +158,10 @@ cmake -DCMAKE_BUILD_TYPE=release ../physx
 `target_link_libraries(my_app PRIVATE physx_lib)` is all you need.
 
 ### Installing and using find_package
+
+Both build entry points default to `<build-dir>/install`. Set `CMAKE_INSTALL_PREFIX` at configure time or pass `--prefix` when installing to choose a different directory. When installing multiple configurations from a Visual Studio or Xcode build tree, give each configuration its own prefix if you want to keep them side by side.
+
+Use separate build and install directories for static and shared SDKs. Both use the same library basenames. Start with fresh build directories when switching to these names so cached output paths and old binaries stay out of the new build.
 
 PhysX supports the standard CMake install + `find_package` workflow for production deployments:
 

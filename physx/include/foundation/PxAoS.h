@@ -7,7 +7,9 @@
 #define PX_AOS_H
 
 
-#if PX_WINDOWS && !PX_NEON
+#if PX_WINDOWS_FAMILY && PX_NEON
+#include "unix/neon/PxUnixNeonAoS.h"
+#elif PX_WINDOWS
 #include "windows/PxWindowsAoS.h"
 #elif(PX_UNIX_FAMILY || PX_SWITCH)
 #include "unix/PxUnixAoS.h"

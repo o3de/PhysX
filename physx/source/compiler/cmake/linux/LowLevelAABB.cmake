@@ -6,10 +6,8 @@
 #
 
 SET(LOWLEVELAABB_PLATFORM_INCLUDES
-	${PHYSX_SOURCE_DIR}/Common/src/linux
-	${PHYSX_SOURCE_DIR}/LowLevelAABB/linux/include
-	${PHYSX_SOURCE_DIR}/GpuBroadPhase/include
-	${PHYSX_SOURCE_DIR}/GpuBroadPhase/src
+	${PHYSX_SOURCE_DIR}/gpubroadphase/include
+	${PHYSX_SOURCE_DIR}/gpubroadphase/src
 )
 
 

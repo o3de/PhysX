@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<preset name="linux-x64">
+  <platform targetPlatform="linux" compiler="default" generator="ninja" />
+  <CMakeSwitches>
+    <cmakeSwitch name="PX_BUILDSNIPPETS" value="False" />
+    <cmakeSwitch name="PX_BUILDPVDRUNTIME" value="True" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="False" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS_ONLY" value="False" />
+    <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="True" />
+  </CMakeSwitches>
+  <CMakeParams>
+    <cmakeParam name="TARGET_BUILD_PLATFORM" value="linux" />
+  </CMakeParams>
+</preset>

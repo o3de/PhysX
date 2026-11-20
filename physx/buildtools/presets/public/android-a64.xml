@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<preset name="android-a64">
+  <platform targetPlatform="android" compiler="clang" />
+  <CMakeSwitches>
+    <cmakeSwitch name="PX_BUILDSNIPPETS" value="False" />
+    <cmakeSwitch name="PX_BUILDPVDRUNTIME" value="False" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="False" />
+    <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="True" />
+  </CMakeSwitches>
+  <CMakeParams>
+    <cmakeParam name="TARGET_BUILD_PLATFORM" value="android" />
+    <cmakeParam name="ANDROID_ABI" value="arm64-v8a" />
+    <cmakeParam name="ANDROID_PLATFORM" value="android-29" />
+    <cmakeParam name="CMAKE_TOOLCHAIN_FILE" value="buildtools/cmake/android-ndk.cmake" />
+  </CMakeParams>
+</preset>

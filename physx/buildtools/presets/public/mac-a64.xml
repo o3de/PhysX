@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<preset name="mac-a64">
+  <platform targetPlatform="mac" compiler="xcode" />
+  <CMakeSwitches>
+    <cmakeSwitch name="PX_BUILDSNIPPETS" value="False" />
+    <cmakeSwitch name="PX_BUILDPVDRUNTIME" value="False" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="False" />
+    <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="True" />
+  </CMakeSwitches>
+  <CMakeParams>
+    <cmakeParam name="TARGET_BUILD_PLATFORM" value="mac" />
+    <cmakeParam name="CMAKE_OSX_ARCHITECTURES" value="arm64" />
+    <cmakeParam name="CMAKE_OSX_SYSROOT" value="macosx" />
+    <cmakeParam name="CMAKE_OSX_DEPLOYMENT_TARGET" value="11.0" />
+  </CMakeParams>
+</preset>

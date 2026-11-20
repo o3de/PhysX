@@ -331,14 +331,8 @@ if(OVRUNTIME_DEV_PHYSX AND NOT TARGET PhysX)
     set(CMAKE_BUILD_TYPE "${_OVRUNTIME_SAVED_BUILD_TYPE}" CACHE STRING "" FORCE)
     unset(_OVRUNTIME_SAVED_BUILD_TYPE)
 
-    # Fix output name: PhysX cmake uses OUTPUT_NAME "PhysXGpu" (no _64 suffix),
-    # which sets the SONAME to libPhysXGpu.so.
-    # PxLoadPhysxGPUModule (compiled into the PhysX static lib) does
-    # dlopen("libPhysXGpu_64.so") at runtime.  On Linux, dlopen matches by SONAME
-    # when checking already-loaded libraries, so the SONAME must include _64 for the
-    # lookup to succeed — especially from Python where the calling library has no
-    # RPATH pointing to the bin directory.
-    if(TARGET PhysXGpu)
+    # The internal SDK loader still expects the legacy module name.
+    if(_OVRUNTIME_PHYSX_SOURCE_LAYOUT STREQUAL "internal" AND TARGET PhysXGpu)
         set_target_properties(PhysXGpu PROPERTIES OUTPUT_NAME "PhysXGpu_64")
     endif()
 

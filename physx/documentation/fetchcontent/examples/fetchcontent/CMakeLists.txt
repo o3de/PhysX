@@ -31,25 +31,24 @@ set(FETCHCONTENT_QUIET OFF)
 # PHYSX CONFIGURATION - Choose your build preset
 #########################################################
 
-# OPTION 1: Use a PhysX preset for common configurations (RECOMMENDED)
-# Presets provide well-tested combinations of build options:
-#   - vc17win64: Windows VS2022, GPU enabled, shared libraries  
-#   - vc17win64-cpu-only: Windows VS2022, CPU only, shared libraries
-#   - linux-gcc: Linux GCC, GPU enabled, static libraries
-#   - linux-gcc-cpu-only: Linux GCC, CPU only, static libraries  
-#   - linux-clang: Linux Clang, GPU enabled, static libraries
-#   - linux-aarch64-gcc: ARM64 Linux GCC, GPU enabled, static libraries
-
-# Only set default presets if not already specified (allows CI override)
-if(NOT DEFINED PHYSX_PRESET OR PHYSX_PRESET STREQUAL "")
-    if(WIN32)
-        # Windows: Use VS2022 with GPU support (most common)
-        set(PHYSX_PRESET "vc17win64" CACHE STRING "PhysX build preset")
-    elseif(UNIX AND NOT APPLE)
-        # Linux: Use GCC with GPU support (most common)
-        set(PHYSX_PRESET "linux-gcc" CACHE STRING "PhysX build preset") 
+# Set PHYSX_PRESET explicitly when choosing a different toolset or target.
+if(NOT DEFINED PHYSX_PRESET)
+    if(CMAKE_GENERATOR MATCHES "^Visual Studio (17|18) ")
+        set(physx_vs_version "${CMAKE_MATCH_1}")
+        string(TOLOWER "${CMAKE_VS_PLATFORM_NAME}" physx_arch)
+        if(physx_arch STREQUAL "arm64")
+            set(physx_arch "a64")
+        endif()
+        if(physx_arch MATCHES "^(x64|a64)$")
+            set(PHYSX_PRESET "windows-vc${physx_vs_version}-${physx_arch}")
+        endif()
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+            set(PHYSX_PRESET "linux-a64")
+        elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+            set(PHYSX_PRESET "linux-x64")
+        endif()
     endif()
-    # Note: macOS is not currently supported via public presets
 endif()
 
 # OPTION 2: Manual configuration (advanced users only)
@@ -62,16 +61,11 @@ endif()
 # FETCHCONTENT DECLARATION  
 #########################################################
 
-# Declare the PhysX dependency using FetchContent
-# - physx_lib: Name used to refer to this dependency in our project
-# - GIT_REPOSITORY: Source repository URL
-# - GIT_TAG: Specific branch, tag, or commit to use
-# - SOURCE_SUBDIR: Subdirectory in the repository containing the main CMakeLists.txt
+# Use the PhysX checkout that contains this example.
 FetchContent_Declare(
     physx_lib
-    GIT_REPOSITORY https://github.com/NVIDIA-Omniverse/PhysX.git
-    GIT_TAG        origin/main  # Or pin to a specific release tag/commit
-    SOURCE_SUBDIR  physx
+    SOURCE_DIR    "${CMAKE_CURRENT_LIST_DIR}/../../../../.."
+    SOURCE_SUBDIR physx
 )
 
 # Note: We intentionally avoid requiring very new CMake features (e.g.

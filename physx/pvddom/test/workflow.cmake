@@ -44,7 +44,7 @@ if(UNIX AND NOT APPLE AND DEFINED BUILD)
         file(WRITE "${relocationMarker}" "Owned by ovd_sdk_capture_inspect_compare\n")
         set(RECORDER "${relocated}/bin/ovd-record")
         set(CLI "${relocated}/bin/ovd-inspect")
-        if(EXISTS "${relocated}/${INSTALL_LIBDIR}/libPhysX_64.so")
+        if(EXISTS "${relocated}/${INSTALL_LIBDIR}/libPhysX.so")
             file(REAL_PATH "${relocated}/${INSTALL_LIBDIR}" relocatedLibraryRoot)
             execute_process(COMMAND ldd "${RECORDER}" RESULT_VARIABLE lddCode
                 OUTPUT_VARIABLE lddOutput ERROR_VARIABLE lddDiagnostic)

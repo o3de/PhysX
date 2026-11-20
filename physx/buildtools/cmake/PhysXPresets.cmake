@@ -15,7 +15,7 @@
 #   include("${CMAKE_CURRENT_LIST_DIR}/buildtools/cmake/PhysXPresets.cmake")
 #   physx_apply_preset_switches(${PHYSX_PRESET})   # before project()
 #   project(MyProject ...)
-#   physx_apply_preset_params()                     # after project()
+#   physx_apply_install_prefix()                    # after project()
 
 # IMPORTANT: Capture CMAKE_CURRENT_LIST_DIR at file parse time, not inside functions.
 # Inside functions, CMAKE_CURRENT_LIST_DIR refers to the file calling the function!
@@ -25,24 +25,12 @@ set(_PHYSX_PRESETS_DIR "${_PHYSX_ROOT_DIR}/buildtools/presets" CACHE INTERNAL ""
 # Function to display available presets
 function(physx_list_available_presets)
     message(STATUS "Available PhysX presets:")
-    message(STATUS "")
-    message(STATUS "Windows (Visual Studio):")
-    message(STATUS "  vc17win64              - VS2022, GPU enabled, shared libraries")
-    message(STATUS "  vc17win64-cpu-only     - VS2022, CPU only, shared libraries") 
-    message(STATUS "  vc16win64              - VS2019, GPU enabled, shared libraries")
-    message(STATUS "  vc16win64-cpu-only     - VS2019, CPU only, shared libraries")
-    message(STATUS "")
-    message(STATUS "Linux (GCC/Clang):")
-    message(STATUS "  linux-gcc              - GCC, GPU enabled, static libraries")
-    message(STATUS "  linux-gcc-cpu-only     - GCC, CPU only, static libraries")
-    message(STATUS "  linux-clang            - Clang, GPU enabled, static libraries")
-    message(STATUS "  linux-clang-cpu-only   - Clang, CPU only, static libraries")
-    message(STATUS "")
-    message(STATUS "Linux ARM64:")
-    message(STATUS "  linux-aarch64-gcc      - ARM64 GCC, GPU enabled, static libraries")
-    message(STATUS "  linux-aarch64-clang    - ARM64 Clang, GPU enabled, static libraries")
-    message(STATUS "")
-    message(STATUS "Usage: set(PHYSX_PRESET \"vc17win64\" CACHE STRING \"\")")
+    file(GLOB PUBLIC_PRESETS "${_PHYSX_PRESETS_DIR}/public/*.xml")
+    foreach(PRESET_FILE IN LISTS PUBLIC_PRESETS)
+        get_filename_component(PRESET_NAME "${PRESET_FILE}" NAME_WE)
+        message(STATUS "  ${PRESET_NAME}")
+    endforeach()
+    message(STATUS "Select a preset with -DPHYSX_PRESET=<name>")
 endfunction()
 
 # Phase 1 - call BEFORE project().
@@ -54,21 +42,41 @@ function(physx_apply_preset_switches preset_name)
     message(STATUS "Applying preset switches from: ${_PHYSX_PRESET_FILE}")
     file(READ "${_PHYSX_PRESET_FILE}" PRESET_CONTENT)
     physx_parse_cmake_switches("${PRESET_CONTENT}")
+    foreach(PARAM_NAME TARGET_BUILD_PLATFORM CMAKE_SYSTEM_NAME CMAKE_SYSTEM_PROCESSOR
+            CMAKE_OSX_ARCHITECTURES CMAKE_OSX_SYSROOT CMAKE_OSX_DEPLOYMENT_TARGET
+            CMAKE_TOOLCHAIN_FILE ANDROID_ABI ANDROID_PLATFORM PHYSX_EMSCRIPTEN_ARCH)
+        string(REGEX MATCH "cmakeParam name=\"${PARAM_NAME}\" value=\"([^\"]+)\"" PARAM_MATCH "${PRESET_CONTENT}")
+        if(PARAM_MATCH)
+            set(PARAM_VALUE "${CMAKE_MATCH_1}")
+            if(PARAM_NAME STREQUAL "CMAKE_TOOLCHAIN_FILE" AND NOT IS_ABSOLUTE "${PARAM_VALUE}")
+                set(PARAM_VALUE "${_PHYSX_ROOT_DIR}/${PARAM_VALUE}")
+            endif()
+            if(PARAM_NAME STREQUAL "PHYSX_EMSCRIPTEN_ARCH" AND DEFINED PHYSX_EMSCRIPTEN_ARCH
+                    AND NOT PHYSX_EMSCRIPTEN_ARCH STREQUAL PARAM_VALUE)
+                message(FATAL_ERROR "Preset ${preset_name} requires ${PARAM_VALUE}. Use a separate build directory for each Wasm architecture")
+            endif()
+            set(${PARAM_NAME} "${PARAM_VALUE}" CACHE STRING "Set by preset ${preset_name}")
+        endif()
+    endforeach()
+
     message(STATUS "PhysX preset '${preset_name}' switches applied (phase 1 - before project)")
 endfunction()
 
-# Phase 2 - call AFTER project().
-# Applies string parameters (CMAKE_INSTALL_PREFIX needs CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-# and overrides options that are incompatible with FetchContent subproject builds.
-function(physx_apply_preset_params)
-    if(NOT _PHYSX_PRESET_FILE)
+# CMake only reports whether the prefix was supplied by the caller after project().
+function(physx_apply_install_prefix)
+    if(NOT PROJECT_IS_TOP_LEVEL OR NOT CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
         return()
     endif()
 
-    file(READ "${_PHYSX_PRESET_FILE}" PRESET_CONTENT)
-    physx_parse_cmake_params("${PRESET_CONTENT}")
-    physx_override_fetchcontent_incompatible_options()
-    message(STATUS "PhysX preset params applied (phase 2 - after project)")
+    set(INSTALL_PREFIX "${PROJECT_BINARY_DIR}/install")
+    if(PHYSX_PRESET AND _PHYSX_PRESET_FILE)
+        file(READ "${_PHYSX_PRESET_FILE}" PRESET_CONTENT)
+        string(REGEX MATCH [[cmakeParam name="CMAKE_INSTALL_PREFIX" value="([^"]+)"]] PREFIX_MATCH "${PRESET_CONTENT}")
+        if(PREFIX_MATCH)
+            get_filename_component(INSTALL_PREFIX "${CMAKE_MATCH_1}" ABSOLUTE BASE_DIR "${_PHYSX_ROOT_DIR}")
+        endif()
+    endif()
+    set(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}" CACHE PATH "Install path prefix" FORCE)
 endfunction()
 
 # Internal helper: resolve and cache the preset file path.
@@ -135,49 +143,6 @@ function(physx_parse_cmake_switches xml_content)
                 message(STATUS "  ${SWITCH_NAME} = ${PRESET_BOOL} (from preset)")
             else()
                 message(STATUS "  ${SWITCH_NAME} = ${${SWITCH_NAME}} (preset says ${PRESET_BOOL}; kept the value already in the cache, from -D or a previous configure)")
-            endif()
-        endif()
-    endforeach()
-endfunction()
-
-# Function to parse CMake parameters from preset XML content
-function(physx_parse_cmake_params xml_content)
-    # Common PhysX CMake parameters that we support
-    set(SUPPORTED_PARAMS
-        "CMAKE_INSTALL_PREFIX"
-    )
-    
-    foreach(PARAM_NAME ${SUPPORTED_PARAMS})
-        # Look for the parameter in XML content
-        # Pattern: <cmakeParam name="PARAM_NAME" value="some_value"
-        string(REGEX MATCH "cmakeParam name=\"${PARAM_NAME}\" value=\"([^\"]+)\"" PARAM_MATCH "${xml_content}")
-        
-        if(PARAM_MATCH)
-            # Extract the value
-            string(REGEX REPLACE ".*value=\"([^\"]+)\".*" "\\1" PARAM_VALUE "${PARAM_MATCH}")
-            
-            # For CMAKE_INSTALL_PREFIX, make it relative to PhysX root if it's a relative path
-            if("${PARAM_NAME}" STREQUAL "CMAKE_INSTALL_PREFIX")
-                if(NOT IS_ABSOLUTE "${PARAM_VALUE}")
-                    # Use captured _PHYSX_ROOT_DIR, NOT CMAKE_CURRENT_LIST_DIR (wrong inside functions!)
-                    set(PARAM_VALUE "${_PHYSX_ROOT_DIR}/${PARAM_VALUE}")
-                endif()
-                # Only apply preset value if user hasn't explicitly set CMAKE_INSTALL_PREFIX.
-                # CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT is TRUE when the prefix is still
-                # at platform default (/usr/local or C:/Program Files/...), indicating user
-                # hasn't overridden it via -DCMAKE_INSTALL_PREFIX=... or cache.
-                # Note: The old check (NOT DEFINED CMAKE_INSTALL_PREFIX) never worked because
-                # CMake always defines this variable with a platform default after project().
-                if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-                    set(${PARAM_NAME} "${PARAM_VALUE}" CACHE PATH "Set by preset ${PHYSX_PRESET}" FORCE)
-                    message(STATUS "  ${PARAM_NAME} = ${PARAM_VALUE} (from preset)")
-                else()
-                    message(STATUS "  ${PARAM_NAME}: Respecting user's value: ${CMAKE_INSTALL_PREFIX}")
-                endif()
-            else()
-                # Set the cache variable for non-CMAKE_INSTALL_PREFIX params
-                set(${PARAM_NAME} "${PARAM_VALUE}" CACHE STRING "Set by preset ${PHYSX_PRESET}" FORCE)
-                message(STATUS "  ${PARAM_NAME} = ${PARAM_VALUE} (from preset)")
             endif()
         endif()
     endforeach()

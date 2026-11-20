@@ -12,6 +12,41 @@ endif()
 
 CMAKE_POLICY(SET CMP0057 NEW) # Enable IN_LIST
 
+IF(PHYSX_EMSCRIPTEN_ARCH)
+    IF(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        SET(_physx_emscripten_arch wasm64)
+    ELSE()
+        SET(_physx_emscripten_arch wasm32)
+    ENDIF()
+    SET(_physx_emscripten_arch_error
+        "PhysX requires Emscripten ${PHYSX_EMSCRIPTEN_ARCH}. Select that target for both C and C++ before the top-level project()")
+    IF(NOT EMSCRIPTEN OR NOT PHYSX_EMSCRIPTEN_ARCH STREQUAL _physx_emscripten_arch)
+        MESSAGE(FATAL_ERROR "${_physx_emscripten_arch_error}")
+    ENDIF()
+    INCLUDE(CheckSourceCompiles)
+    SET(_physx_try_compile_type "${CMAKE_TRY_COMPILE_TARGET_TYPE}")
+    SET(_physx_try_compile_config "${CMAKE_TRY_COMPILE_CONFIGURATION}")
+    SET(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+    IF(CMAKE_BUILD_TYPE)
+        SET(CMAKE_TRY_COMPILE_CONFIGURATION "${CMAKE_BUILD_TYPE}")
+    ENDIF()
+    FOREACH(_physx_language C CXX)
+        UNSET(_physx_wasm_abi_matches CACHE)
+        CHECK_SOURCE_COMPILES(${_physx_language} "
+            #ifndef __${PHYSX_EMSCRIPTEN_ARCH}__
+            #error Unexpected WebAssembly architecture
+            #endif
+            int main(void) { return 0; }
+        " _physx_wasm_abi_matches)
+        IF(NOT _physx_wasm_abi_matches)
+            MESSAGE(FATAL_ERROR "${_physx_emscripten_arch_error}")
+        ENDIF()
+    ENDFOREACH()
+    UNSET(_physx_wasm_abi_matches CACHE)
+    SET(CMAKE_TRY_COMPILE_TARGET_TYPE "${_physx_try_compile_type}")
+    SET(CMAKE_TRY_COMPILE_CONFIGURATION "${_physx_try_compile_config}")
+ENDIF()
+
 # Check if this is a public release build
 IF(NOT DEFINED PUBLIC_RELEASE)
     SET(PUBLIC_RELEASE 0) # Default to private release
@@ -21,7 +56,7 @@ IF(PUBLIC_RELEASE)
 ENDIF()
 
 OPTION(PX_SCALAR_MATH "Disable SIMD math" OFF)
-OPTION(PX_GENERATE_STATIC_LIBRARIES "Generate static libraries" OFF)
+OPTION(PX_GENERATE_STATIC_LIBRARIES "Generate static libraries" ${EMSCRIPTEN})
 OPTION(PX_EXPORT_LOWLEVEL_PDB "Export low level pdb's" OFF)
 
 IF(NOT DEFINED PHYSX_ROOT_DIR)

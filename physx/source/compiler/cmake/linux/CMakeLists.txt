@@ -32,6 +32,7 @@ SET(CLANG_WARNINGS "-ferror-limit=0 -Wall -Wextra -Werror -Weverything\
     -Wno-missing-variable-declarations \
     -Wno-newline-eof \
     -Wno-non-virtual-dtor \
+    -Wno-nrvo \
     -Wno-old-style-cast \
     -Wno-padded \
     -Wno-reserved-id-macro \
@@ -81,7 +82,7 @@ SET(GCC_WARNINGS "-Wall -Werror \
 	-Wno-use-after-free \
 ")
 
-IF(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+IF(PHYSX_TARGET_ARCH STREQUAL "a64")
 	# gw: these optimizations are disabled for now. fp-contract causes floating point inaccuracy and deviation in behavior,
 	# tree-vrp and delete-null-pointer-checks cause known bugs on some versions of gcc
 	IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -95,8 +96,14 @@ ENDIF()
 
 SET(COMMON_CXX_FLAGS "-std=c++14 -D_GLIBCXX_USE_CXX11_ABI=1 -fno-rtti -fno-exceptions -ffunction-sections -fdata-sections -fvisibility=hidden ${AARCH64_FLAGS}")
 
+IF(EMSCRIPTEN)
+	STRING(REPLACE " -Weverything" "" CLANG_WARNINGS "${CLANG_WARNINGS}")
+	SET(EMSCRIPTEN_COMPILE_OPTIONS -pthread -msimd128 -msse2)
+	ADD_COMPILE_OPTIONS(${EMSCRIPTEN_COMPILE_OPTIONS})
+ENDIF()
+
 IF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-	IF ("${CMAKE_CXX_COMPILER_VERSION}" VERSION_LESS "10.0.0")
+	IF (EMSCRIPTEN OR "${CMAKE_CXX_COMPILER_VERSION}" VERSION_LESS "10.0.0")
 		SET(PHYSX_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_CXX_FLAGS} -fstrict-aliasing -Wstrict-aliasing=2 -Wno-shadow ${CLANG_WARNINGS}" CACHE INTERNAL "PhysX CXX")
 	ELSE()
 		SET(PHYSX_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_CXX_FLAGS} -fstrict-aliasing -Wstrict-aliasing=2 -ffp-exception-behavior=maytrap ${CLANG_WARNINGS}" CACHE INTERNAL "PhysX CXX")
@@ -150,31 +157,6 @@ SET(PHYSX_LINUX_CHECKED_COMPILE_DEFS "NDEBUG;PX_CHECKED=1;${NVTX_FLAG};PX_SUPPOR
 SET(PHYSX_LINUX_PROFILE_COMPILE_DEFS "NDEBUG;PX_PROFILE=1;${NVTX_FLAG};PX_SUPPORT_PVD=1;${PX_SUPPORT_OMNI_PVD_FLAG}"  CACHE INTERNAL "Profile PhysX preprocessor definitions")
 SET(PHYSX_LINUX_RELEASE_COMPILE_DEFS "NDEBUG;PX_SUPPORT_PVD=0;PX_SUPPORT_OMNI_PVD=0" CACHE INTERNAL "Release PhysX preprocessor definitions")
 
-# IF(PUBLIC_RELEASE)
-# 	IF(NOT PHYSX_PHYSXGPU_PATH)
-# 		SET(PHYSX_PHYSXGPU_PATH "$ENV{PM_PhysXGpu_PATH}/bin" CACHE INTERNAL "PhysXGpu copy path")
-# 	ENDIF()
-# 	IF(NOT GPU_LIB_COPIED)
-# 		IF(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-# 			SET(GPU_LIB_COPIED 1 CACHE INTERNAL "PhysX GPU so files copied")
-# 			FILE(COPY ${PHYSX_PHYSXGPU_PATH}/linux.aarch64/checked/libPhysXGpu_64.so DESTINATION ${PX_EXE_OUTPUT_DIRECTORY_DEBUG})
-# 			FILE(COPY ${PHYSX_PHYSXGPU_PATH}/linux.aarch64/checked/libPhysXGpu_64.so DESTINATION ${PX_EXE_OUTPUT_DIRECTORY_CHECKED})
-# 			FILE(COPY ${PHYSX_PHYSXGPU_PATH}/linux.aarch64/profile/libPhysXGpu_64.so DESTINATION ${PX_EXE_OUTPUT_DIRECTORY_PROFILE})
-# 			FILE(COPY ${PHYSX_PHYSXGPU_PATH}/linux.aarch64/release/libPhysXGpu_64.so DESTINATION ${PX_EXE_OUTPUT_DIRECTORY_RELEASE})
-# 			INSTALL(PROGRAMS ${PHYSX_PHYSXGPU_PATH}/linux.aarch64/$<$<CONFIG:debug>:checked>$<$<CONFIG:release>:release>$<$<CONFIG:checked>:checked>$<$<CONFIG:profile>:profile>/libPhysXGpu_64.so
-# 				DESTINATION $<$<CONFIG:debug>:${PX_ROOT_LIB_DIR}/debug>$<$<CONFIG:release>:${PX_ROOT_LIB_DIR}/release>$<$<CONFIG:checked>:${PX_ROOT_LIB_DIR}/checked>$<$<CONFIG:profile>:${PX_ROOT_LIB_DIR}/profile> OPTIONAL)
-# 		ELSEIF(UNIX)
-# 			SET(GPU_LIB_COPIED 1 CACHE INTERNAL "PhysX GPU so files copied")
-# 			FILE(COPY ${PHYSX_PHYSXGPU_PATH}/linux.x86_64/checked/libPhysXGpu_64.so DESTINATION ${PX_EXE_OUTPUT_DIRECTORY_DEBUG})
-# 			FILE(COPY ${PHYSX_PHYSXGPU_PATH}/linux.x86_64/checked/libPhysXGpu_64.so DESTINATION ${PX_EXE_OUTPUT_DIRECTORY_CHECKED})
-# 			FILE(COPY ${PHYSX_PHYSXGPU_PATH}/linux.x86_64/profile/libPhysXGpu_64.so DESTINATION ${PX_EXE_OUTPUT_DIRECTORY_PROFILE})
-# 			FILE(COPY ${PHYSX_PHYSXGPU_PATH}/linux.x86_64/release/libPhysXGpu_64.so DESTINATION ${PX_EXE_OUTPUT_DIRECTORY_RELEASE})
-# 			INSTALL(PROGRAMS ${PHYSX_PHYSXGPU_PATH}/linux.x86_64/$<$<CONFIG:debug>:checked>$<$<CONFIG:release>:release>$<$<CONFIG:checked>:checked>$<$<CONFIG:profile>:profile>/libPhysXGpu_64.so
-# 				DESTINATION $<$<CONFIG:debug>:${PX_ROOT_LIB_DIR}/debug>$<$<CONFIG:release>:${PX_ROOT_LIB_DIR}/release>$<$<CONFIG:checked>:${PX_ROOT_LIB_DIR}/checked>$<$<CONFIG:profile>:${PX_ROOT_LIB_DIR}/profile> OPTIONAL)
-# 		ENDIF()
-# 	ENDIF()
-# ENDIF()
-
 # Include all of the projects
 IF(PX_GENERATE_GPU_PROJECTS_ONLY)
 	INCLUDE(PhysXCommon.cmake)
@@ -185,6 +167,11 @@ IF(PX_GENERATE_GPU_PROJECTS_ONLY)
 	SET_PROPERTY(TARGET PhysXFoundation PROPERTY FOLDER "PhysX SDK")
 ELSE()
 	INCLUDE(PhysXFoundation.cmake)
+	IF(EMSCRIPTEN)
+		TARGET_COMPILE_OPTIONS(PhysXFoundation INTERFACE ${EMSCRIPTEN_COMPILE_OPTIONS})
+		# Return a startup error when the browser's worker pool is exhausted.
+		TARGET_LINK_OPTIONS(PhysXFoundation INTERFACE -pthread -sPTHREAD_POOL_SIZE_STRICT=2)
+	ENDIF()
 	INCLUDE(LowLevel.cmake)
 	INCLUDE(LowLevelAABB.cmake)
 	INCLUDE(LowLevelDynamics.cmake)
