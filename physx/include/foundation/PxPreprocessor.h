@@ -219,7 +219,11 @@ family shortcuts
 // architecture
 #define PX_INTEL_FAMILY (PX_X64 || PX_X86)
 #define PX_ARM_FAMILY (PX_ARM || PX_A64)
+#if defined(__wasm64__)
+#define PX_P64_FAMILY 1
+#else
 #define PX_P64_FAMILY (PX_X64 || PX_A64) // shortcut for 64-bit architectures
+#endif
 
 /**
 C++ standard library defines

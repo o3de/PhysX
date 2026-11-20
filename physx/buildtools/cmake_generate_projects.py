@@ -31,10 +31,9 @@ def filterPreset(presetPath):
         presetName = presetPath
     
     # Platform-specific filtering
-    winPresetFilter = ['win','switch','crosscompile','android']
+    winPresetFilter = ['win','switch','crosscompile','android','emscripten']
     if sys.platform == 'win32':
-        # On Windows, include presets that contain win, switch, or crosscompile 
-        # (but not windows-crosscompile)
+        # windows-crosscompile targets Windows from a non-Windows host.
         if any((presetName.find(elem) != -1 and 'windows-crosscompile' not in presetName) for elem in winPresetFilter):
             return True
     else:
@@ -163,7 +162,7 @@ class CMakePreset:
             return False
         elif self.targetPlatform == 'linuxAarch64':
             return False
-        elif self.targetPlatform == 'android':
+        elif self.targetPlatform in ('android', 'emscripten'):
             return False
         elif self.compiler == 'x86_64-w64-mingw32-g++':
             return False
@@ -240,7 +239,7 @@ class CMakePreset:
     def getPlatformCMakeParams(self):
         cmake_modules_root = os.environ['PHYSX_ROOT_DIR'] + '/source/compiler/cmake/modules'
         outString = ' '
-        if self.targetPlatform == 'android' or self.compiler == 'clang-linux-cross':
+        if self.targetPlatform in ('android', 'emscripten') or self.compiler == 'clang-linux-cross':
             return outString + '-G "Ninja"'
         if self.targetPlatform in ('mac64', 'macArm64', 'ios64'):
             return outString + '-G Xcode'

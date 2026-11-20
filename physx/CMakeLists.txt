@@ -151,7 +151,7 @@ endif()
 # Mimic Python preset parameters via options and environment variables
 # Note: PX_GENERATE_GPU_PROJECTS already declared above before project() call
 option(PX_GENERATE_GPU_PROJECTS_ONLY "Generate ONLY GPU projects" OFF)
-option(PX_GENERATE_STATIC_LIBRARIES "Build static PhysX libs" OFF)
+option(PX_GENERATE_STATIC_LIBRARIES "Build static PhysX libs" ${EMSCRIPTEN})
 option(PX_GENERATE_GPU_STATIC_LIBRARIES "Build static PhysXGpu" OFF)
 option(PX_BUILDSNIPPETS "Generate the snippets" OFF)
 option(PX_BUILDUNITTESTS "Build the public SDK unit tests" OFF)

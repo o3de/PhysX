@@ -14,6 +14,9 @@
 #endif
 #include <stdio.h>
 #include <pthread.h>
+#if PX_EMSCRIPTEN
+#include <stdlib.h>
+#endif
 #include <unistd.h>
 #include <sys/syscall.h>
 #if !PX_APPLE_FAMILY && !PX_EMSCRIPTEN
@@ -169,7 +172,16 @@ void PxThreadImpl::start(uint32_t stackSize, PxRunnable* runnable)
 	status = pthread_attr_setstacksize(&attr, stackSize);
 	PX_ASSERT(!status);
 	status = pthread_create(&getThread(this)->thread, &attr, PxThreadStart, this);
+#if PX_EMSCRIPTEN
+	if(status)
+	{
+		PxGetFoundation().error(PxErrorCode::eINTERNAL_ERROR, PX_FL,
+			"Could not create a PhysX worker thread (%d). In a browser, prestart enough Emscripten pthread workers.", status);
+		abort();
+	}
+#else
 	PX_ASSERT(!status);
+#endif
 
 	// wait for thread to startup and write out TID
 	// otherwise TID dependent calls like setAffinity will fail.
@@ -249,7 +261,9 @@ void PxThreadImpl::yield()
 
 void PxThreadImpl::yieldProcessor()
 {
-#if (PX_ARM || PX_A64)
+#if PX_EMSCRIPTEN
+	yield();
+#elif (PX_ARM || PX_A64)
 	__asm__ __volatile__("yield");
 #else
 	__asm__ __volatile__("pause");

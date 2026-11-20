@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<preset name="emscripten-wasm32" comment="Emscripten wasm32 CPU SDK">
+  <platform targetPlatform="emscripten" compiler="clang" />
+  <CMakeSwitches>
+    <cmakeSwitch name="PX_BUILDSNIPPETS" value="False" />
+    <cmakeSwitch name="PX_BUILDPVDRUNTIME" value="False" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS" value="False" />
+    <cmakeSwitch name="PX_GENERATE_GPU_PROJECTS_ONLY" value="False" />
+    <cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="True" />
+  </CMakeSwitches>
+  <CMakeParams>
+    <cmakeParam name="TARGET_BUILD_PLATFORM" value="linux" />
+    <cmakeParam name="CMAKE_TOOLCHAIN_FILE" value="buildtools/cmake/emscripten.cmake" />
+    <cmakeParam name="PHYSX_EMSCRIPTEN_ARCH" value="wasm32" />
+    <cmakeParam name="CMAKE_INSTALL_PREFIX" value="install/emscripten-wasm32/PhysX" />
+  </CMakeParams>
+</preset>

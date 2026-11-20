@@ -38,6 +38,8 @@ PX_INLINE physx::PxSIMDGuard::PxSIMDGuard(bool enable)
 		PX_ASSERT(_mm_getcsr() & (1 << 6));
 		PX_ASSERT(_mm_getcsr() & _MM_MASK_MASK);
 	}
+#else
+	PX_UNUSED(enable);
 #endif
 }
 

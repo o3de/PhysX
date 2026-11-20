@@ -15,7 +15,7 @@ using namespace physx;
 namespace
 {
 
-#define SN_NUM_BINARY_PLATFORMS 15
+#define SN_NUM_BINARY_PLATFORMS 17
 const PxU32 sBinaryPlatformTags[SN_NUM_BINARY_PLATFORMS] =
 {
 	PX_MAKE_FOURCC('W','_','3','2'),
@@ -33,6 +33,8 @@ const PxU32 sBinaryPlatformTags[SN_NUM_BINARY_PLATFORMS] =
 	PX_MAKE_FOURCC('I','X','6','4'),
 	PX_MAKE_FOURCC('A','X','6','4'),
 	PX_MAKE_FOURCC('W','A','6','4'),
+	PX_MAKE_FOURCC('E','M','3','2'),
+	PX_MAKE_FOURCC('E','M','6','4'),
 };
 
 const char* sBinaryPlatformNames[SN_NUM_BINARY_PLATFORMS] =
@@ -52,6 +54,8 @@ const char* sBinaryPlatformNames[SN_NUM_BINARY_PLATFORMS] =
 	"ios-x64",
 	"android-x64",
 	"windows-a64",
+	"emscripten-wasm32",
+	"emscripten-wasm64",
 };
 
 }
@@ -60,7 +64,11 @@ namespace physx { namespace Sn {
 
 PxU32 getBinaryPlatformTag()
 {
-#if PX_WINDOWS && PX_X86
+#if PX_EMSCRIPTEN && PX_P64_FAMILY
+	return sBinaryPlatformTags[16];
+#elif PX_EMSCRIPTEN
+	return sBinaryPlatformTags[15];
+#elif PX_WINDOWS && PX_X86
 	return sBinaryPlatformTags[0];
 #elif PX_WINDOWS && PX_X64
 	return sBinaryPlatformTags[1];
